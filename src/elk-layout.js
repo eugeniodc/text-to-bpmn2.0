@@ -90,19 +90,32 @@ export async function layoutBpmnWithElk(inputXml) {
   const flowNodeRegex = /<(?:bpmn:)?(startEvent|endEvent|intermediateCatchEvent|intermediateThrowEvent|boundaryEvent|exclusiveGateway|parallelGateway|inclusiveGateway|complexGateway|eventBasedGateway|task|userTask|serviceTask|sendTask|receiveTask|manualTask|businessRuleTask|scriptTask|callActivity|subProcess)\b[^>]*id="([^"]+)"(?:\s+name="([^"]*)")?[^>]*>/gi;
 
   const flowNodes = [];
+  const flowNodeMap = new Map();
   const boundaryEvents = [];
   let fnMatch;
   while ((fnMatch = flowNodeRegex.exec(xml)) !== null) {
     const tagName = fnMatch[1];
     const id = fnMatch[2];
     const name = fnMatch[3] || '';
-    const size = getElementSize(tagName);
+    let size = getElementSize(tagName);
+    const isActivity = /task|callActivity|subProcess/i.test(tagName);
+    if (isActivity && name.length > 25) {
+      if (name.length <= 45) {
+        size = { width: 125, height: 80 };
+      } else if (name.length <= 70) {
+        size = { width: 140, height: 85 };
+      } else {
+        size = { width: 155, height: 90 };
+      }
+    }
+    const nodeObj = { id, tagName, name, ...size };
+    flowNodeMap.set(id, nodeObj);
 
     if (tagName === 'boundaryEvent') {
       const attachedMatch = fnMatch[0].match(/attachedToRef="([^"]+)"/i);
       boundaryEvents.push({ id, tagName, name, attachedToRef: attachedMatch ? attachedMatch[1] : null, ...size });
     } else {
-      flowNodes.push({ id, tagName, name, ...size });
+      flowNodes.push(nodeObj);
     }
   }
 
@@ -167,11 +180,38 @@ export async function layoutBpmnWithElk(inputXml) {
   }
 
   // 6. Build ELK Graph and Execute Layout
-  const elkNodes = flowNodes.map(n => ({
-    id: n.id,
-    width: n.width,
-    height: n.height
-  }));
+  const elkNodes = flowNodes.map(n => {
+    const nodeObj = {
+      id: n.id,
+      width: n.width,
+      height: n.height
+    };
+    if (n.name && n.name.trim()) {
+      const tag = (n.tagName || '').toLowerCase();
+      if (tag.includes('gateway')) {
+        const lblW = Math.min(140, Math.max(65, Math.ceil(n.name.trim().length * 6.8)));
+        const numLines = Math.ceil(n.name.trim().length / 18);
+        const lblH = Math.max(14, numLines * 14);
+        nodeObj.labels = [{
+          text: n.name.trim(),
+          width: lblW,
+          height: lblH,
+          layoutOptions: { 'elk.nodeLabels.placement': 'OUTSIDE V_TOP H_CENTER' }
+        }];
+      } else if (tag.includes('event')) {
+        const lblW = Math.min(120, Math.max(45, Math.ceil(n.name.trim().length * 6.8)));
+        const numLines = Math.ceil(n.name.trim().length / 16);
+        const lblH = Math.max(14, numLines * 14);
+        nodeObj.labels = [{
+          text: n.name.trim(),
+          width: lblW,
+          height: lblH,
+          layoutOptions: { 'elk.nodeLabels.placement': 'OUTSIDE V_BOTTOM H_CENTER' }
+        }];
+      }
+    }
+    return nodeObj;
+  });
 
   const elkEdges = sequenceFlows.map(sf => {
     const edgeObj = {
@@ -180,7 +220,7 @@ export async function layoutBpmnWithElk(inputXml) {
       targets: [sf.targetRef]
     };
     if (sf.name && sf.name.trim()) {
-      edgeObj.labels = [{ text: sf.name.trim(), width: Math.max(30, sf.name.trim().length * 7), height: 14 }];
+      edgeObj.labels = [{ text: sf.name.trim(), width: Math.max(35, sf.name.trim().length * 7 + 10), height: 14 }];
     }
     return edgeObj;
   });
@@ -196,10 +236,11 @@ export async function layoutBpmnWithElk(inputXml) {
       'elk.layered.unnecessaryBendpoints': 'true',
       'elk.layered.thoroughness': '10',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      'elk.spacing.nodeNode': hasMultipleLanes ? '55' : '45',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '70',
-      'elk.spacing.edgeNode': '25',
-      'elk.spacing.edgeEdge': '15',
+      'elk.spacing.nodeNode': hasMultipleLanes ? '60' : '50',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '85',
+      'elk.spacing.edgeNode': '30',
+      'elk.spacing.edgeEdge': '20',
+      'elk.edgeLabels.placement': 'CENTER',
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
       'elk.layered.mergeEdges': 'true'
     },
@@ -212,8 +253,11 @@ export async function layoutBpmnWithElk(inputXml) {
   // Map calculated shapes
   const shapesMap = new Map();
   for (const c of elkResult.children) {
+    const orig = flowNodeMap.get(c.id);
     shapesMap.set(c.id, {
       id: c.id,
+      tagName: orig?.tagName || '',
+      name: orig?.name || '',
       x: Math.round(c.x),
       y: Math.round(c.y),
       width: c.width,
@@ -334,6 +378,10 @@ export async function layoutBpmnWithElk(inputXml) {
 
   // 9. Position Data Objects with Guaranteed Collision Avoidance
   const allPositionedShapes = [...shapesMap.values()];
+  const dataObjectMap = new Map();
+  for (const doObj of dataObjects) {
+    dataObjectMap.set(doObj.id, doObj);
+  }
 
   for (const assoc of associations) {
     const isOut = assoc.type === 'output';
@@ -382,7 +430,16 @@ export async function layoutBpmnWithElk(inputXml) {
       }
     }
 
-    const doShape = { id: dataObjId, x: chosenPos.x, y: chosenPos.y, width: doW, height: doH };
+    const doMeta = dataObjectMap.get(dataObjId);
+    const doShape = {
+      id: dataObjId,
+      name: doMeta?.name || '',
+      tagName: 'dataObjectReference',
+      x: chosenPos.x,
+      y: chosenPos.y,
+      width: doW,
+      height: doH
+    };
     shapesMap.set(dataObjId, doShape);
     allPositionedShapes.push(doShape);
   }
@@ -439,14 +496,61 @@ export async function layoutBpmnWithElk(inputXml) {
   // 11. Generate DI XML for Flow Nodes
   let flowShapesXml = '';
   for (const s of shapesMap.values()) {
+    let labelXml = '';
+    if (s.name && s.name.trim()) {
+      const nameStr = s.name.trim();
+      const tag = (s.tagName || '').toLowerCase();
+      if (tag.includes('gateway')) {
+        const lblW = Math.min(135, Math.max(65, Math.ceil(nameStr.length * 6.8)));
+        const numLines = Math.ceil(nameStr.length / 18);
+        const lblH = Math.max(14, numLines * 14);
+        const lblX = Math.round(s.x + (s.width - lblW) / 2);
+        const laneIdx = nodeToLane.get(s.id) ?? 0;
+        const laneTop = hasMultipleLanes ? (laneYOffsets[laneIdx] || poolY) : poolY;
+        let lblY = Math.round(s.y - lblH - 6);
+        if (lblY < laneTop + 10) {
+          lblY = Math.round(s.y + s.height + 6);
+        }
+        labelXml = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" />\n        </bpmndi:BPMNLabel>`;
+      } else if (tag.includes('event')) {
+        const lblW = Math.min(120, Math.max(45, Math.ceil(nameStr.length * 6.8)));
+        const numLines = Math.ceil(nameStr.length / 16);
+        const lblH = Math.max(14, numLines * 14);
+        const lblX = Math.round(s.x + (s.width - lblW) / 2);
+        const laneIdx = nodeToLane.get(s.id) ?? 0;
+        const laneTop = hasMultipleLanes ? (laneYOffsets[laneIdx] || poolY) : poolY;
+        const laneH = hasMultipleLanes ? (laneHeights[laneIdx] || 160) : Infinity;
+        let lblY = Math.round(s.y + s.height + 6);
+        if (lblY + lblH > laneTop + laneH - 5) {
+          lblY = Math.round(s.y - lblH - 6);
+        }
+        labelXml = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" />\n        </bpmndi:BPMNLabel>`;
+      } else if (tag.includes('dataobject')) {
+        const lblW = Math.min(100, Math.max(40, Math.ceil(nameStr.length * 6.5)));
+        const numLines = Math.ceil(nameStr.length / 14);
+        const lblH = Math.max(14, numLines * 14);
+        const lblX = Math.round(s.x + (s.width - lblW) / 2);
+        const lblY = Math.round(s.y + s.height + 4);
+        labelXml = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" />\n        </bpmndi:BPMNLabel>`;
+      }
+    }
     flowShapesXml += `
       <bpmndi:BPMNShape id="${s.id}_di" bpmnElement="${s.id}">
-        <dc:Bounds x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" />
+        <dc:Bounds x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" />${labelXml}
       </bpmndi:BPMNShape>`;
   }
 
   // 12. Generate DI XML for Sequence Flows
+  const outgoingFlowsMap = new Map();
+  for (const sf of sequenceFlows) {
+    if (!outgoingFlowsMap.has(sf.sourceRef)) {
+      outgoingFlowsMap.set(sf.sourceRef, []);
+    }
+    outgoingFlowsMap.get(sf.sourceRef).push(sf);
+  }
+
   let edgesXml = '';
+  const placedEdgeLabels = [];
   for (const sf of sequenceFlows) {
     const sfId = sf.id;
     const sShape = shapesMap.get(sf.sourceRef);
@@ -476,46 +580,115 @@ export async function layoutBpmnWithElk(inputXml) {
       // Multi-lane routing: compute clean Manhattan orthogonal waypoints
       const sCenterY = Math.round(sShape.y + sShape.height / 2);
       const tCenterY = Math.round(tShape.y + tShape.height / 2);
+      const sRight = Math.round(sShape.x + sShape.width);
+      const tLeft = Math.round(tShape.x);
 
-      if (Math.abs(sCenterY - tCenterY) < 15) {
-        // Horizontally aligned
+      const isForward = sRight < tLeft;
+      const isAligned = Math.abs(sCenterY - tCenterY) < 15;
+
+      if (isForward && isAligned) {
+        // Direct horizontal connection
         waypoints = [
-          { x: Math.round(sShape.x + sShape.width), y: sCenterY },
-          { x: Math.round(tShape.x), y: tCenterY }
+          { x: sRight, y: sCenterY },
+          { x: tLeft, y: tCenterY }
         ];
-      } else if (sShape.x < tShape.x) {
-        // Left to right across different Y levels / lanes
-        const p1x = Math.round(sShape.x + sShape.width);
-        const p2x = Math.round(tShape.x);
-        const midX = Math.round(p1x + (p2x - p1x) / 2);
+      } else if (isForward) {
+        // Forward flow across different Y levels (tracks or lanes)
+        const outgoing = outgoingFlowsMap.get(sf.sourceRef) || [sf];
+        const branchIdx = outgoing.findIndex(f => f.id === sf.id);
+        const branchCount = outgoing.length;
+
+        const totalGap = tLeft - sRight;
+        const staggerStep = branchCount > 1 ? Math.min(25, Math.floor((totalGap * 0.3) / branchCount)) : 0;
+        const baseTurnX = Math.round(sRight + Math.max(30, totalGap * 0.35));
+        const midX = Math.min(tLeft - 30, baseTurnX + (branchIdx * staggerStep));
+
         waypoints = [
-          { x: p1x, y: sCenterY },
+          { x: sRight, y: sCenterY },
           { x: midX, y: sCenterY },
           { x: midX, y: tCenterY },
-          { x: p2x, y: tCenterY }
+          { x: tLeft, y: tCenterY }
         ];
       } else {
         // Loop back / return flow: route around bottom
-        const p1x = Math.round(sShape.x + sShape.width / 2);
-        const p1y = Math.round(sShape.y + sShape.height);
-        const p2x = Math.round(tShape.x + tShape.width / 2);
-        const p2y = Math.round(tShape.y + tShape.height);
-        const bottomY = Math.max(p1y, p2y) + 35;
+        const p0x = Math.round(sShape.x + sShape.width / 2);
+        const p0y = Math.round(sShape.y + sShape.height);
+        const p3x = Math.round(tShape.x + tShape.width / 2);
+        const p3y = Math.round(tShape.y + tShape.height);
+        const bottomY = Math.max(p0y, p3y) + 32;
+
         waypoints = [
-          { x: p1x, y: p1y },
-          { x: p1x, y: bottomY },
-          { x: p2x, y: bottomY },
-          { x: p2x, y: p2y }
+          { x: p0x, y: p0y },
+          { x: p0x, y: bottomY },
+          { x: p3x, y: bottomY },
+          { x: p3x, y: p3y }
         ];
       }
 
       if (sf.name && sf.name.trim()) {
-        const lblW = Math.max(30, sf.name.trim().length * 7);
-        const lblX = waypoints.length > 2 ? waypoints[1].x + 5 : Math.round(waypoints[0].x + (waypoints[1].x - waypoints[0].x) / 2 - lblW / 2);
-        const lblY = waypoints.length > 2 ? Math.round(waypoints[1].y - 18) : Math.round(waypoints[0].y - 18);
+        const text = sf.name.trim();
+        const lblW = Math.max(35, Math.min(150, Math.round(text.length * 7 + 10)));
+        const lblH = 14;
+        let lblX, lblY;
+
+        if (isForward && isAligned) {
+          // Horizontal flow: center in the gap between shapes
+          const gap = tLeft - sRight;
+          lblX = Math.round(sRight + (gap - lblW) / 2);
+          lblY = Math.round(sCenterY - lblH - 4);
+        } else if (isForward) {
+          // Multi-step forward flow: place along the arrival segment into target
+          const midX = waypoints[1].x;
+          const arrivalLen = tLeft - midX;
+          if (arrivalLen >= lblW + 16) {
+            lblX = Math.round(midX + (arrivalLen - lblW) / 2);
+            lblY = Math.round(tCenterY - lblH - 4);
+          } else {
+            const depLen = midX - sRight;
+            if (depLen >= lblW + 16) {
+              lblX = Math.round(sRight + (depLen - lblW) / 2);
+              lblY = Math.round(sCenterY - lblH - 4);
+            } else {
+              lblX = Math.max(midX + 5, tLeft - lblW - 10);
+              lblY = Math.round(tCenterY - lblH - 4);
+            }
+          }
+        } else {
+          // Return flow: place along the horizontal bottom segment (p1 -> p2)
+          const leftX = waypoints[2].x;
+          const rightX = waypoints[1].x;
+          const segLen = Math.abs(rightX - leftX);
+          lblX = Math.round(Math.min(leftX, rightX) + (segLen - lblW) / 2);
+          lblY = Math.round(waypoints[1].y - lblH - 3);
+        }
+
+        // Avoid label collisions with previously placed edge labels
+        for (const prev of placedEdgeLabels) {
+          const xOverlap = Math.max(0, Math.min(lblX + lblW, prev.x + prev.w) - Math.max(lblX, prev.x));
+          const yOverlap = Math.max(0, Math.min(lblY + lblH, prev.y + prev.h) - Math.max(lblY, prev.y));
+          if (xOverlap > 0 && yOverlap > 0) {
+            lblY = prev.y - lblH - 4;
+          }
+        }
+
+        // Ensure label doesn't intersect any shape
+        for (const s of shapesMap.values()) {
+          const xOverlap = Math.max(0, Math.min(lblX + lblW, s.x + s.width) - Math.max(lblX, s.x));
+          const yOverlap = Math.max(0, Math.min(lblY + lblH, s.y + s.height) - Math.max(lblY, s.y));
+          if (xOverlap > 0 && yOverlap > 0) {
+            if (lblX < s.x) {
+              lblX = s.x - lblW - 6;
+            } else {
+              lblX = s.x + s.width + 6;
+            }
+          }
+        }
+
+        placedEdgeLabels.push({ x: lblX, y: lblY, w: lblW, h: lblH });
+
         labelXml = `
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="14" />
+          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" />
         </bpmndi:BPMNLabel>`;
       }
     }
