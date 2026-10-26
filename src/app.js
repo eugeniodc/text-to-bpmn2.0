@@ -988,6 +988,278 @@ async function autoLayout() {
   }
 }
 
+/* ─────────── FIX ISSUES (WARNINGS & ERRORS) ─────────── */
+
+let currentLintIssues = [];
+
+const fixBtn = document.getElementById('fixBPMN');
+const lintBadge = document.getElementById('lint-badge');
+const fixModal = document.getElementById('fix-modal');
+const fixModalClose = document.getElementById('fix-modal-close');
+const fixModalCancel = document.getElementById('btn-fix-cancel');
+const fixModalIssuesList = document.getElementById('fix-modal-issues-list');
+const fixModalSummary = document.getElementById('fix-modal-summary');
+const btnFixAi = document.getElementById('btn-fix-ai');
+const btnFixQuick = document.getElementById('btn-fix-quick');
+
+function updateLintBadge() {
+  if (!lintBadge || !fixBtn) return;
+  const count = currentLintIssues.length;
+  if (count === 0) {
+    lintBadge.style.display = 'none';
+    fixBtn.classList.remove('has-issues');
+    fixBtn.title = 'No hay problemas detectados en el diagrama';
+  } else {
+    lintBadge.style.display = 'inline-flex';
+    lintBadge.textContent = count;
+    const errors = currentLintIssues.filter(i => i.category === 'error').length;
+    const warnings = currentLintIssues.filter(i => i.category === 'warn').length;
+    fixBtn.classList.add('has-issues');
+    if (errors > 0) {
+      lintBadge.className = 'lint-badge error';
+      fixBtn.title = `Corregir ${errors} error(es) y ${warnings} warning(s)`;
+    } else {
+      lintBadge.className = 'lint-badge warning';
+      fixBtn.title = `Corregir ${warnings} advertencia(s)`;
+    }
+  }
+}
+
+// Subscribe to bpmnlint results
+modeler.get('eventBus').on('linting.completed', event => {
+  currentLintIssues = [];
+  const issuesMap = event.issues || {};
+  for (const elementId of Object.keys(issuesMap)) {
+    const list = issuesMap[elementId];
+    if (Array.isArray(list)) {
+      for (const item of list) {
+        currentLintIssues.push({
+          id: elementId,
+          rule: item.rule || '',
+          category: item.category || 'warn',
+          message: item.message || ''
+        });
+      }
+    }
+  }
+  updateLintBadge();
+});
+
+if (fixBtn) {
+  fixBtn.addEventListener('click', () => {
+    if (currentLintIssues.length === 0) {
+      addBotMessage('✨ No se han detectado errores ni advertencias (warnings) en el diagrama. ¡El modelo cumple todas las reglas de BPMN 2.0!');
+      return;
+    }
+    openFixModal();
+  });
+}
+
+function openFixModal() {
+  if (!fixModal) return;
+  const errors = currentLintIssues.filter(i => i.category === 'error').length;
+  const warnings = currentLintIssues.filter(i => i.category === 'warn').length;
+
+  if (fixModalSummary) {
+    fixModalSummary.textContent = `Se han detectado ${currentLintIssues.length} problema(s) (${errors} error(es), ${warnings} advertencia(s)):`;
+  }
+
+  if (fixModalIssuesList) {
+    fixModalIssuesList.innerHTML = currentLintIssues.map(issue => `
+      <div class="fix-issue-item ${issue.category === 'error' ? 'error' : 'warn'}">
+        <span class="fix-issue-badge ${issue.category === 'error' ? 'error' : 'warn'}">
+          ${issue.category === 'error' ? 'ERROR' : 'WARN'}
+        </span>
+        <div class="fix-issue-details">
+          <span class="fix-issue-element">${issue.id}</span>
+          <span class="fix-issue-rule">(${issue.rule})</span>
+          <div class="fix-issue-message">${issue.message}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const hasFakeJoin = currentLintIssues.some(i => i.rule === 'fake-join');
+  if (btnFixQuick) {
+    btnFixQuick.style.display = hasFakeJoin ? 'inline-flex' : 'none';
+  }
+
+  fixModal.style.display = 'flex';
+}
+
+function closeFixModal() {
+  if (fixModal) fixModal.style.display = 'none';
+}
+
+if (fixModalClose) fixModalClose.addEventListener('click', closeFixModal);
+if (fixModalCancel) fixModalCancel.addEventListener('click', closeFixModal);
+if (fixModal) {
+  fixModal.addEventListener('click', e => {
+    if (e.target === fixModal) closeFixModal();
+  });
+}
+
+// AI Fix Handler
+if (btnFixAi) {
+  btnFixAi.addEventListener('click', async () => {
+    closeFixModal();
+
+    if (isFullscreen) {
+      toggleFullscreen();
+    }
+
+    try {
+      const { xml } = await modeler.saveXML({ format: true });
+      const issuesList = currentLintIssues.map(i =>
+        `- Elemento "${i.id}" [${i.category.toUpperCase()} - regla "${i.rule}"]: ${i.message}`
+      ).join('\n');
+
+      const repairPrompt = `Por favor, repara y corrige los siguientes errores y advertencias de BPMN 2.0 detectados en el diagrama actual:
+
+${issuesList}
+
+BPMN XML actual:
+\`\`\`xml
+${xml}
+\`\`\`
+
+Instrucciones de corrección:
+1. Corrige TODOS los problemas listados respetando estrictamente el estándar BPMN 2.0.
+2. Si hay advertencias de 'fake-join' (flujos entrantes que no se unen), inserta una compuerta exclusiva (XOR) de unión justo antes de la actividad para canalizar todos los flujos entrantes a través de dicha compuerta.
+3. Si faltan eventos de inicio o fin, añádelos y conéctalos coherentemente con los flujos.
+4. Si hay elementos desconectados o compuertas superfluas, corrígelos o enlázalos de forma limpia.
+5. Mantén la lógica de negocio, nombres de tareas y piscinas/calles existentes.
+6. Devuelve el código XML de BPMN 2.0 completo y corregido.`;
+
+      // Show user message in chat
+      const userMessage = document.createElement('div');
+      userMessage.className = 'chat-msg user';
+      userMessage.innerHTML = `<div class="msg-header">User</div><div class="msg-content">🛠️ <em>Reparar con IA: Corregir ${currentLintIssues.length} problema(s) de BPMN 2.0 detectados en el diagrama</em></div>`;
+      chatLog.appendChild(userMessage);
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      sendPrompt(repairPrompt);
+    } catch (err) {
+      console.error('Error getting XML for AI repair:', err);
+      addBotMessage('❌ Error al preparar la reparación con IA: ' + err.message);
+    }
+  });
+}
+
+// Quick Algorithmic Fix Handler (resolves fake-join directly without waiting for LLM)
+if (btnFixQuick) {
+  btnFixQuick.addEventListener('click', async () => {
+    closeFixModal();
+    try {
+      const { xml } = await modeler.saveXML({ format: true });
+      const result = fixFakeJoinsAlgorithmic(xml);
+      if (result.fixedCount > 0) {
+        let layouted = await layoutAndEnrichDiagram(result.fixedXml);
+        await modeler.importXML(layouted);
+        if (colorsEnabled) applyBpmnColors();
+        fitView();
+        addBotMessage(`⚡ Se han corregido automáticamente ${result.fixedCount} advertencia(s) de 'fake-join' insertando las compuertas exclusivas de unión correspondientes.`);
+      } else {
+        addBotMessage('ℹ️ No se detectaron problemas de estructura directa (fake-join) corregibles algorítmicamente.');
+      }
+    } catch (err) {
+      console.error('Quick fix error:', err);
+      addBotMessage('❌ Error durante la reparación rápida: ' + err.message);
+    }
+  });
+}
+
+function fixFakeJoinsAlgorithmic(xmlString) {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+
+  if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+    throw new Error('Error al parsear XML del diagrama');
+  }
+
+  const sequenceFlows = Array.from(xmlDoc.getElementsByTagNameNS('*', 'sequenceFlow'));
+  const targetMap = new Map();
+  for (const sf of sequenceFlows) {
+    const targetRef = sf.getAttribute('targetRef');
+    if (targetRef) {
+      if (!targetMap.has(targetRef)) targetMap.set(targetRef, []);
+      targetMap.get(targetRef).push(sf);
+    }
+  }
+
+  let fixedCount = 0;
+
+  for (const [targetId, flows] of targetMap.entries()) {
+    if (flows.length <= 1) continue;
+
+    const targetElem = xmlDoc.getElementById(targetId) ||
+                       xmlDoc.querySelector(`[id="${targetId}"]`);
+    if (!targetElem) continue;
+
+    const tagName = targetElem.localName || targetElem.tagName;
+    if (!/task|callActivity|subProcess/i.test(tagName)) continue;
+
+    fixedCount++;
+    const gwId = 'Gateway_join_' + targetId;
+    const newFlowId = 'Flow_join_' + targetId;
+
+    const gw = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:exclusiveGateway');
+    gw.setAttribute('id', gwId);
+    gw.setAttribute('name', 'Unión');
+
+    for (const flow of flows) {
+      flow.setAttribute('targetRef', gwId);
+      const inc = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:incoming');
+      inc.textContent = flow.getAttribute('id');
+      gw.appendChild(inc);
+    }
+
+    const out = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:outgoing');
+    out.textContent = newFlowId;
+    gw.appendChild(out);
+
+    const newSf = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:sequenceFlow');
+    newSf.setAttribute('id', newFlowId);
+    newSf.setAttribute('sourceRef', gwId);
+    newSf.setAttribute('targetRef', targetId);
+
+    targetElem.parentNode.insertBefore(gw, targetElem);
+    targetElem.parentNode.insertBefore(newSf, targetElem);
+
+    const oldIncomings = Array.from(targetElem.getElementsByTagNameNS('*', 'incoming'));
+    for (const oldInc of oldIncomings) {
+      oldInc.parentNode.removeChild(oldInc);
+    }
+    const newInc = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:incoming');
+    newInc.textContent = newFlowId;
+    targetElem.insertBefore(newInc, targetElem.firstChild);
+
+    const lanes = Array.from(xmlDoc.getElementsByTagNameNS('*', 'lane'));
+    for (const lane of lanes) {
+      const flowNodeRefs = Array.from(lane.getElementsByTagNameNS('*', 'flowNodeRef'));
+      const hasTarget = flowNodeRefs.some(fn => fn.textContent.trim() === targetId);
+      if (hasTarget) {
+        const newFnRef = xmlDoc.createElementNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'bpmn:flowNodeRef');
+        newFnRef.textContent = gwId;
+        lane.appendChild(newFnRef);
+        break;
+      }
+    }
+  }
+
+  // Strip old diagram section so ELK regenerates fresh layout
+  const diagrams = Array.from(xmlDoc.getElementsByTagNameNS('*', 'BPMNDiagram'));
+  for (const d of diagrams) {
+    d.parentNode.removeChild(d);
+  }
+
+  const serializer = new XMLSerializer();
+  return {
+    fixedXml: serializer.serializeToString(xmlDoc),
+    fixedCount
+  };
+}
+
 // Colors button in diagram toolbar
 const toggleColorsBtn = document.getElementById('toggleColors');
 if (toggleColorsBtn) {

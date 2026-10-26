@@ -781,3 +781,241 @@ body {
   background-color: var(--bjsl-color-warning);
   color: white;
 }
+
+/* ─────────── FIX ISSUES BUTTON & BADGE ─────────── */
+.fix-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.fix-btn.has-issues {
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+}
+
+.fix-btn.has-issues:hover {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+.lint-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lint-badge.warning {
+  background-color: #f59e0b;
+  color: #1c1917;
+}
+
+.lint-badge.error {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+/* ─────────── FIX MODAL ─────────── */
+.fix-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fix-modal-card {
+  background: #1e222d;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 580px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.fix-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #374151;
+  background-color: #171a23;
+}
+
+.fix-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.fix-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.fix-modal-close-btn:hover {
+  color: #ffffff;
+}
+
+.fix-modal-body {
+  padding: 18px 20px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.fix-modal-summary {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+}
+
+.fix-issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fix-issue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background-color: #262b37;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.fix-issue-item.warn {
+  border-left: 4px solid #f59e0b;
+}
+
+.fix-issue-item.error {
+  border-left: 4px solid #ef4444;
+}
+
+.fix-issue-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.fix-issue-badge.warn {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.fix-issue-badge.error {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.fix-issue-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.fix-issue-element {
+  font-weight: 600;
+  color: #f3f4f6;
+  font-family: monospace;
+}
+
+.fix-issue-rule {
+  font-size: 11px;
+  color: #9ca3af;
+  font-family: monospace;
+  margin-left: 6px;
+}
+
+.fix-issue-message {
+  margin-top: 3px;
+  color: #d1d5db;
+  line-height: 1.4;
+}
+
+.fix-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #374151;
+  background-color: #171a23;
+}
+
+.btn-fix-primary {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+.btn-fix-primary:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-fix-secondary {
+  background-color: #374151;
+  color: #f3f4f6;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.btn-fix-secondary:hover {
+  background-color: #4b5563;
+}
+
+.btn-fix-cancel {
+  background: transparent;
+  color: #9ca3af;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-fix-cancel:hover {
+  color: #e5e7eb;
+}
