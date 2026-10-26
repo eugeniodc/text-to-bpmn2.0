@@ -14,6 +14,7 @@ CRITICAL: PREVENT "No valid BPMN XML found in the response"
    - [ ] Root process is defined: <bpmn:process id="Process_1" name="..." isExecutable="false">.
    - [ ] Contains at least one <bpmn:startEvent>, connected flow nodes/tasks, and at least one <bpmn:endEvent>.
    - [ ] Every flow node has matching <bpmn:incoming> and <bpmn:outgoing> tags pointing to valid <bpmn:sequenceFlow> IDs.
+   - [ ] NO FAKE JOINS: No Activity/Task has more than ONE <bpmn:incoming> tag. All converging flows (such as loopbacks or alternative branches) merge through an explicit Gateway first.
    - [ ] Every <bpmn:sequenceFlow ... /> is self-closing and has valid sourceRef and targetRef.
    - [ ] Strictly closed tags: ends cleanly with </bpmn:process></bpmn:definitions>```.
 5. ONLY EXCEPTION: If the user prompt contains zero process information (e.g. just "hola"), return ONLY:
@@ -33,6 +34,19 @@ CRITICAL: DO NOT GENERATE DIAGRAM INTERCHANGE (bpmndi)
    - The client application integrates an automated layout engine (ELK - Eclipse Layout Kernel) that automatically calculates all 2D coordinates, positions, and routes arrows.
    - Generating manual diagram interchange (DI) coordinates wastes thousands of tokens, causes output cut-offs (unexpected EOF), and breaks rendering.
    - Output ONLY the semantic BPMN 2.0 elements (<bpmn:process>, events, tasks, gateways, sequenceFlows, collaboration/lanes).
+
+======================================================================
+CRITICAL: NO "FAKE JOINS" (bpmnlint rule: fake-join)
+======================================================================
+10. NEVER attach multiple <bpmn:incoming> flows directly to an Activity or Task:
+    - In BPMN 2.0, connecting multiple sequence flows directly to a task is an invalid pattern called "fake join" or "implicit join".
+    - Whenever multiple sequence flows converge (e.g. forward flow + feedback/loopback flow, or alternative decision paths leading to the same step):
+      * You MUST ALWAYS route those incoming flows through an intermediate merging Gateway:
+        Use <bpmn:exclusiveGateway id="..." name="Merge"> for loopbacks/alternative paths.
+        Use <bpmn:parallelGateway id="..." name="Sincronizar"> for parallel branches joining.
+      * The merging Gateway receives the converging sequence flows, and emits a SINGLE outgoing sequence flow into the task.
+      * Connecting multiple flows directly into a task causes the linter error: "Incoming flows do not join [fake-join]".
+
 
 ======================================================================
 SUPPORTED BPMN 2.0 OBJECTS & NATURAL LANGUAGE MAPPING

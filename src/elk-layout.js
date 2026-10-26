@@ -191,8 +191,9 @@ export async function layoutBpmnWithElk(inputXml) {
       'elk.algorithm': 'layered',
       'elk.direction': 'RIGHT',
       'elk.edgeRouting': 'ORTHOGONAL',
-      'elk.spacing.nodeNode': hasMultipleLanes ? '50' : '40',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '65',
+      'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
+      'elk.spacing.nodeNode': hasMultipleLanes ? '55' : '45',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '70',
       'elk.spacing.edgeNode': '25',
       'elk.spacing.edgeEdge': '15',
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
@@ -232,79 +233,63 @@ export async function layoutBpmnWithElk(inputXml) {
   const poolY = 20;
   const shiftX = hasPool ? 120 : 40;
 
+  let laneHeights = [];
+  let laneYOffsets = [];
+
   if (hasMultipleLanes) {
     // Group shapes by lane
-    const laneShapes = new Map();
+    const laneShapes = [];
     for (let i = 0; i < lanes.length; i++) {
-      laneShapes.set(i, []);
+      laneShapes.push([]);
     }
     for (const s of shapesMap.values()) {
       const laneIdx = nodeToLane.get(s.id) ?? 0;
-      if (!laneShapes.has(laneIdx)) laneShapes.set(laneIdx, []);
-      laneShapes.get(laneIdx).push(s);
+      if (laneShapes[laneIdx]) {
+        laneShapes[laneIdx].push(s);
+      }
     }
 
-    // Calculate dynamic lane heights based on max concurrent nodes at similar X
-    const laneHeights = [];
+    const TRACK_H = 115;
+    const PADDING_V = 30;
+    let curY = poolY;
+
     for (let i = 0; i < lanes.length; i++) {
-      const nodes = laneShapes.get(i) || [];
+      const nodes = laneShapes[i];
       nodes.sort((a, b) => a.x - b.x);
 
-      let maxConcurrent = 1;
-      for (let j = 0; j < nodes.length; j++) {
-        const concurrent = nodes.filter(other => Math.abs(other.x - nodes[j].x) < 55).length;
-        if (concurrent > maxConcurrent) maxConcurrent = concurrent;
-      }
-      const dynHeight = Math.max(160, maxConcurrent * 105 + 45);
-      laneHeights.push(dynHeight);
-    }
-
-    // Calculate Y offset for each lane
-    const laneYOffsets = [];
-    let curY = poolY;
-    for (let i = 0; i < lanes.length; i++) {
-      laneYOffsets.push(curY);
-      curY += laneHeights[i];
-    }
-
-    // Position shapes inside each lane
-    for (let i = 0; i < lanes.length; i++) {
-      const nodes = laneShapes.get(i) || [];
-      const laneY = laneYOffsets[i];
-      const laneH = laneHeights[i];
-
-      // Cluster nodes by X to detect parallel branches
-      const clusters = [];
-      for (const n of nodes) {
-        let placed = false;
-        for (const cluster of clusters) {
-          if (Math.abs(cluster.x - n.x) < 55) {
-            cluster.nodes.push(n);
-            placed = true;
+      // Assign nodes to non-overlapping vertical tracks in this lane
+      const tracks = [];
+      for (const node of nodes) {
+        let placedTrack = -1;
+        for (let t = 0; t < tracks.length; t++) {
+          const lastInTrack = tracks[t][tracks[t].length - 1];
+          // Ensure at least 30px horizontal clearance before sharing a track
+          if (node.x >= lastInTrack.x + lastInTrack.width + 30) {
+            tracks[t].push(node);
+            placedTrack = t;
             break;
           }
         }
-        if (!placed) {
-          clusters.push({ x: n.x, nodes: [n] });
+        if (placedTrack === -1) {
+          tracks.push([node]);
         }
       }
 
-      for (const cluster of clusters) {
-        const k = cluster.nodes.length;
-        if (k === 1) {
-          const n = cluster.nodes[0];
+      const numTracks = Math.max(1, tracks.length);
+      const laneH = Math.max(160, PADDING_V * 2 + numTracks * TRACK_H);
+      laneHeights.push(laneH);
+      laneYOffsets.push(curY);
+
+      // Distribute each track's nodes vertically centered in its track row
+      for (let t = 0; t < numTracks; t++) {
+        const trackCenterY = curY + PADDING_V + (t + 0.5) * TRACK_H;
+        for (const n of (tracks[t] || [])) {
           n.x += shiftX;
-          n.y = Math.round(laneY + (laneH - n.height) / 2);
-        } else {
-          // Evenly distribute concurrent nodes vertically
-          const step = laneH / (k + 1);
-          for (let j = 0; j < k; j++) {
-            const n = cluster.nodes[j];
-            n.x += shiftX;
-            n.y = Math.round(laneY + (j + 1) * step - (n.height / 2));
-          }
+          n.y = Math.round(trackCenterY - (n.height / 2));
         }
       }
+
+      curY += laneH;
     }
   } else {
     // Single lane or no lanes: apply simple padding shift
@@ -343,8 +328,9 @@ export async function layoutBpmnWithElk(inputXml) {
     }
   }
 
-  // 9. Position Data Objects
-  const taskDoCounts = new Map();
+  // 9. Position Data Objects with Guaranteed Collision Avoidance
+  const allPositionedShapes = [...shapesMap.values()];
+
   for (const assoc of associations) {
     const isOut = assoc.type === 'output';
     const taskId = isOut ? assoc.source : assoc.target;
@@ -353,14 +339,48 @@ export async function layoutBpmnWithElk(inputXml) {
     if (!shapesMap.has(taskId) || shapesMap.has(dataObjId)) continue;
 
     const taskShape = shapesMap.get(taskId);
-    const count = taskDoCounts.get(taskId) || 0;
-    taskDoCounts.set(taskId, count + 1);
-
     const doW = 36, doH = 50;
-    const doX = Math.round(taskShape.x + (taskShape.width - doW) / 2 + (count * 45));
-    const doY = Math.max(30, Math.round(taskShape.y - doH - 25));
 
-    shapesMap.set(dataObjId, { id: dataObjId, x: doX, y: doY, width: doW, height: doH });
+    // Determine the lane bounds if multiple lanes exist
+    const laneIdx = nodeToLane.get(taskId) ?? 0;
+    const laneTop = hasMultipleLanes ? (laneYOffsets[laneIdx] || poolY) : poolY;
+    const laneBottom = hasMultipleLanes ? (laneTop + (laneHeights[laneIdx] || 160)) : Infinity;
+
+    // Candidate positions: Above task, To the right, Below task
+    const candidatePositions = [
+      { x: Math.round(taskShape.x + (taskShape.width - doW) / 2), y: Math.round(taskShape.y - doH - 25) },
+      { x: Math.round(taskShape.x + taskShape.width + 25), y: Math.round(taskShape.y + (taskShape.height - doH) / 2) },
+      { x: Math.round(taskShape.x + (taskShape.width - doW) / 2), y: Math.round(taskShape.y + taskShape.height + 25) }
+    ];
+
+    let chosenPos = candidatePositions[0];
+
+    for (const cand of candidatePositions) {
+      // Must stay within lane/pool bounds
+      if (cand.y < laneTop + 15 || (cand.y + doH) > laneBottom - 15) {
+        continue;
+      }
+
+      // Check collision against all existing shapes
+      let hasCollision = false;
+      for (const s of allPositionedShapes) {
+        const xOverlap = Math.max(0, Math.min(cand.x + doW, s.x + s.width) - Math.max(cand.x, s.x));
+        const yOverlap = Math.max(0, Math.min(cand.y + doH, s.y + s.height) - Math.max(cand.y, s.y));
+        if (xOverlap > 0 && yOverlap > 0) {
+          hasCollision = true;
+          break;
+        }
+      }
+
+      if (!hasCollision) {
+        chosenPos = cand;
+        break;
+      }
+    }
+
+    const doShape = { id: dataObjId, x: chosenPos.x, y: chosenPos.y, width: doW, height: doH };
+    shapesMap.set(dataObjId, doShape);
+    allPositionedShapes.push(doShape);
   }
 
   // 10. Calculate Pool and Lane Dimensions
@@ -379,19 +399,10 @@ export async function layoutBpmnWithElk(inputXml) {
     poolW = Math.round(maxX - poolX + 80);
 
     if (hasMultipleLanes) {
-      // Re-sum dynamic lane heights
-      let totalLaneH = 0;
       let curY = poolY;
-
       for (let i = 0; i < lanes.length; i++) {
         const l = lanes[i];
-        const nodesInLane = [...shapesMap.values()].filter(s => nodeToLane.get(s.id) === i);
-        let maxConcurrent = 1;
-        for (let j = 0; j < nodesInLane.length; j++) {
-          const concurrent = nodesInLane.filter(o => Math.abs(o.x - nodesInLane[j].x) < 55).length;
-          if (concurrent > maxConcurrent) maxConcurrent = concurrent;
-        }
-        const laneH = Math.max(160, maxConcurrent * 105 + 45);
+        const laneH = laneHeights[i] || 160;
 
         laneShapesXml += `
       <bpmndi:BPMNShape id="${l.id}_di" bpmnElement="${l.id}" isHorizontal="true">
@@ -399,9 +410,8 @@ export async function layoutBpmnWithElk(inputXml) {
       </bpmndi:BPMNShape>`;
 
         curY += laneH;
-        totalLaneH += laneH;
       }
-      poolH = totalLaneH;
+      poolH = curY - poolY;
     } else {
       poolH = Math.round(maxY - poolY + 50);
       if (lanes.length === 1) {
@@ -442,7 +452,7 @@ export async function layoutBpmnWithElk(inputXml) {
     let waypoints = [];
     let labelXml = '';
 
-    // If single lane, try to use ELK's precise orthogonal route
+    // If single lane and ELK provided clean sections, use ELK waypoints
     if (!hasMultipleLanes && edgeRoutesMap.has(sfId)) {
       const route = edgeRoutesMap.get(sfId);
       const s = route.section;
@@ -481,7 +491,7 @@ export async function layoutBpmnWithElk(inputXml) {
           { x: p2x, y: tCenterY }
         ];
       } else {
-        // Loop back / return flow
+        // Loop back / return flow: route around bottom
         const p1x = Math.round(sShape.x + sShape.width / 2);
         const p1y = Math.round(sShape.y + sShape.height);
         const p2x = Math.round(tShape.x + tShape.width / 2);
