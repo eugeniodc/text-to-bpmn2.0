@@ -233,17 +233,32 @@ export async function layoutBpmnWithElk(inputXml) {
     return nodeObj;
   });
 
-  const elkEdges = sequenceFlows.map(sf => {
-    const edgeObj = {
-      id: sf.id,
-      sources: [sf.sourceRef],
-      targets: [sf.targetRef]
-    };
-    if (sf.name && sf.name.trim()) {
-      edgeObj.labels = [{ text: sf.name.trim(), width: Math.max(35, sf.name.trim().length * 7 + 10), height: 14 }];
+  const flowNodeIdSet = new Set(flowNodes.map(n => n.id));
+  const boundaryToHostMap = new Map();
+  for (const be of boundaryEvents) {
+    if (be.attachedToRef) {
+      boundaryToHostMap.set(be.id, be.attachedToRef);
     }
-    return edgeObj;
-  });
+  }
+
+  const elkEdges = [];
+  for (const sf of sequenceFlows) {
+    const srcId = boundaryToHostMap.get(sf.sourceRef) || sf.sourceRef;
+    const tgtId = boundaryToHostMap.get(sf.targetRef) || sf.targetRef;
+
+    // Both source and target MUST exist in elkNodes, and must not be identical
+    if (flowNodeIdSet.has(srcId) && flowNodeIdSet.has(tgtId) && srcId !== tgtId) {
+      const edgeObj = {
+        id: sf.id,
+        sources: [srcId],
+        targets: [tgtId]
+      };
+      if (sf.name && sf.name.trim()) {
+        edgeObj.labels = [{ text: sf.name.trim(), width: Math.max(35, sf.name.trim().length * 7 + 10), height: 14 }];
+      }
+      elkEdges.push(edgeObj);
+    }
+  }
 
   const elkGraph = {
     id: 'root',
@@ -392,7 +407,25 @@ export async function layoutBpmnWithElk(inputXml) {
       const host = shapesMap.get(be.attachedToRef);
       const beX = Math.round(host.x + host.width - be.width - 15);
       const beY = Math.round(host.y + host.height - (be.height / 2));
-      shapesMap.set(be.id, { id: be.id, x: beX, y: beY, width: be.width, height: be.height });
+      shapesMap.set(be.id, {
+        id: be.id,
+        tagName: be.tagName || 'boundaryEvent',
+        name: be.name || '',
+        x: beX,
+        y: beY,
+        width: be.width,
+        height: be.height
+      });
+    } else {
+      shapesMap.set(be.id, {
+        id: be.id,
+        tagName: be.tagName || 'boundaryEvent',
+        name: be.name || '',
+        x: 100,
+        y: 100,
+        width: be.width,
+        height: be.height
+      });
     }
   }
 
@@ -404,11 +437,22 @@ export async function layoutBpmnWithElk(inputXml) {
   }
 
   for (const assoc of associations) {
-    const isOut = assoc.type === 'output';
-    const taskId = isOut ? assoc.source : assoc.target;
-    const dataObjId = isOut ? assoc.target : assoc.source;
+    let taskId, dataObjId;
+    if (shapesMap.has(assoc.source) && dataObjectMap.has(assoc.target)) {
+      taskId = assoc.source;
+      dataObjId = assoc.target;
+    } else if (shapesMap.has(assoc.target) && dataObjectMap.has(assoc.source)) {
+      taskId = assoc.target;
+      dataObjId = assoc.source;
+    } else if (shapesMap.has(assoc.source)) {
+      taskId = assoc.source;
+      dataObjId = assoc.target;
+    } else {
+      taskId = assoc.target;
+      dataObjId = assoc.source;
+    }
 
-    if (!shapesMap.has(taskId) || shapesMap.has(dataObjId)) continue;
+    if (!shapesMap.has(taskId) || !dataObjectMap.has(dataObjId) || shapesMap.has(dataObjId)) continue;
 
     const taskShape = shapesMap.get(taskId);
     const doMeta = dataObjectMap.get(dataObjId);
@@ -546,7 +590,7 @@ export async function layoutBpmnWithElk(inputXml) {
           lblY = Math.round(s.y - lblH - 6);
         }
         labelXml = `\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x="${lblX}" y="${lblY}" width="${lblW}" height="${lblH}" />\n        </bpmndi:BPMNLabel>`;
-      } else if (tag.includes('dataobject')) {
+      } else if (tag.includes('dataobject') || tag.includes('datastore')) {
         const lblW = Math.min(100, Math.max(40, Math.ceil(nameStr.length * 6.5)));
         const numLines = Math.ceil(nameStr.length / 14);
         const lblH = Math.max(14, numLines * 14);
