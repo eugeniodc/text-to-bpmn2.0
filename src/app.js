@@ -375,25 +375,12 @@ async function tryImportBpmn(xml) {
     );
   }
 
-  const hasDiagram = cleanXml.includes('bpmndi:BPMNDiagram') && cleanXml.includes('bpmndi:BPMNPlane');
-
   try {
-    if (!hasDiagram) {
-      console.log('BPMNDiagram missing, applying auto-layout and enrichment...');
-      let layouted = await layoutAndEnrichDiagram(cleanXml);
-      await modeler.importXML(layouted);
-      if (colorsEnabled) applyBpmnColors();
-      fitView();
-      addMsg('Diagram generated and auto-arranged successfully ✅', 'bot');
-      return;
-    }
-
-    // Diagram already has DI coordinates
     let layouted = await layoutAndEnrichDiagram(cleanXml);
     await modeler.importXML(layouted);
     if (colorsEnabled) applyBpmnColors();
     fitView();
-    addMsg('Diagram generated successfully ✅', 'bot');
+    addMsg('Diagram generated and auto-arranged successfully ✅', 'bot');
   } catch (err) {
     console.warn('Direct importXML failed, attempting auto-layout fallback with clean semantic model:', err);
     try {
