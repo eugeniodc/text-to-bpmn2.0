@@ -145,12 +145,32 @@ export async function layoutBpmnWithElk(inputXml) {
     }
   }
 
-  // 5. Parse Data Objects and Associations
+  // 5. Parse Data Objects, Data Stores, Text Annotations, and Associations
   const dataObjects = [];
-  const doRefRegex = /<bpmn:dataObjectReference\b[^>]*id="([^"]+)"(?:\s+name="([^"]*)")?[^>]*\/>/gi;
+  const doRefRegex = /<(?:bpmn:)?(dataObjectReference|dataStoreReference)\b[^>]*id="([^"]+)"(?:\s+name="([^"]*)")?[^>]*\/?>/gi;
   let doMatch;
   while ((doMatch = doRefRegex.exec(xml)) !== null) {
-    dataObjects.push({ id: doMatch[1], name: doMatch[2] || '', width: 36, height: 50 });
+    const isStore = doMatch[1].toLowerCase().includes('datastore');
+    dataObjects.push({
+      id: doMatch[2],
+      name: doMatch[3] || '',
+      tagName: doMatch[1],
+      width: isStore ? 50 : 36,
+      height: 50
+    });
+  }
+
+  const textAnnotationRegex = /<(?:bpmn:)?textAnnotation\b[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/(?:bpmn:)?textAnnotation>/gi;
+  let taMatch;
+  while ((taMatch = textAnnotationRegex.exec(xml)) !== null) {
+    const textMatch = taMatch[2].match(/<(?:bpmn:)?text>([^<]*)<\/(?:bpmn:)?text>/i);
+    dataObjects.push({
+      id: taMatch[1],
+      name: textMatch ? textMatch[1].trim() : '',
+      tagName: 'textAnnotation',
+      width: 110,
+      height: 55
+    });
   }
 
   const associations = [];
@@ -391,7 +411,9 @@ export async function layoutBpmnWithElk(inputXml) {
     if (!shapesMap.has(taskId) || shapesMap.has(dataObjId)) continue;
 
     const taskShape = shapesMap.get(taskId);
-    const doW = 36, doH = 50;
+    const doMeta = dataObjectMap.get(dataObjId);
+    const doW = doMeta?.width || 36;
+    const doH = doMeta?.height || 50;
 
     // Determine the lane bounds if multiple lanes exist
     const laneIdx = nodeToLane.get(taskId) ?? 0;
@@ -430,11 +452,10 @@ export async function layoutBpmnWithElk(inputXml) {
       }
     }
 
-    const doMeta = dataObjectMap.get(dataObjId);
     const doShape = {
       id: dataObjId,
       name: doMeta?.name || '',
-      tagName: 'dataObjectReference',
+      tagName: doMeta?.tagName || 'dataObjectReference',
       x: chosenPos.x,
       y: chosenPos.y,
       width: doW,
