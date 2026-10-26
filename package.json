@@ -12,10 +12,10 @@
     "convert:drawio": "node scripts/bpmn-to-drawio.js"
   },
   "dependencies": {
-    "bpmn-auto-layout": "^1.0.0",
     "bpmn-js-bpmnlint": "^0.23.0",
     "bpmn-moddle": "^9.0.1",
     "dotenv": "^16.4.0",
+    "elkjs": "^0.12.0",
     "express": "^4.18.2",
     "marked": "^15.0.11",
     "node-fetch": "^3.3.2"

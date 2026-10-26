@@ -30,7 +30,7 @@ CRITICAL RULES FOR REASONING MODELS (WHEN REASONING / THINKING IS ON)
 CRITICAL: DO NOT GENERATE DIAGRAM INTERCHANGE (bpmndi)
 ======================================================================
 9. STRICTLY FORBIDDEN: Do NOT generate <bpmndi:BPMNDiagram>, <bpmndi:BPMNPlane>, <bpmndi:BPMNShape>, <bpmndi:BPMNEdge>, <dc:Bounds>, or <di:waypoint>.
-   - The client application integrates an automated layout engine (bpmn-auto-layout) that automatically calculates all 2D coordinates, positions, and routes arrows.
+   - The client application integrates an automated layout engine (ELK - Eclipse Layout Kernel) that automatically calculates all 2D coordinates, positions, and routes arrows.
    - Generating manual diagram interchange (DI) coordinates wastes thousands of tokens, causes output cut-offs (unexpected EOF), and breaks rendering.
    - Output ONLY the semantic BPMN 2.0 elements (<bpmn:process>, events, tasks, gateways, sequenceFlows, collaboration/lanes).
 
