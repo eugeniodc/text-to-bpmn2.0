@@ -213,6 +213,30 @@ body {
   margin-left: 4px;
 }
 
+.attach-link {
+  font-size: 12px;
+  color: #3b82f6;
+  background: none;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: auto;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.attach-link:hover {
+  background: #eef2ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 .diagram-pane {
   flex: 1;
   display: flex;
@@ -223,44 +247,65 @@ body {
 #canvas {
   flex: 1;
   background: #fff;
+  transition: outline .15s ease, background-color .15s ease;
+}
+
+#canvas.dragover {
+  outline: 3px dashed #3b82f6;
+  outline-offset: -10px;
+  background-color: #f0f7ff !important;
 }
 
 .diagram-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 80px;
-  padding: 0 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  min-height: 80px;
+  padding: 0.75rem 1rem;
  
   background: #fff;
 }
 
 .button-group {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .button-group button {
-  padding: .75rem 3.5rem;
-  font-size: 15px;
-  font-weight: 400;
+  padding: .6rem 1rem;
+  font-size: 14px;
+  font-weight: 500;
   border-radius: 8px;
   border: 1.5px solid #3b82f6;
   background: #fff;
   color: #3b82f6;
-  /*background: #3b82f6;
-  color: #d0d7e5;*/
+  white-space: nowrap;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: .5rem;
-  transition: background .2s;
+  transition: all .2s;
   box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.1);
 }
 
 .button-group button:hover {
   background: #293445;
   color:#f1f2f4;
+}
+
+.button-group button.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.button-group button.active:hover {
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .fullscreen-toggle {

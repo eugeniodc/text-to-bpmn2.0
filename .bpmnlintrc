@@ -1,6 +1,7 @@
 {
   "extends": "bpmnlint:recommended",
   "rules": {
-    "no-inclusive-gateway": "warn"
+    "no-inclusive-gateway": "warn",
+    "no-bpmndi": "off"
   }
 }

@@ -8,19 +8,26 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "rollup -c rollup.config.mjs",
-    "watch": "rollup -c rollup.config.mjs -w"
+    "watch": "rollup -c rollup.config.mjs -w",
+    "convert:drawio": "node scripts/bpmn-to-drawio.js"
   },
   "dependencies": {
     "bpmn-auto-layout": "^1.0.0",
     "bpmn-js-bpmnlint": "^0.23.0",
+    "bpmn-moddle": "^9.0.1",
     "dotenv": "^16.4.0",
     "express": "^4.18.2",
     "marked": "^15.0.11",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "esbuild": "^0.25.3",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "rollup": "^2.80.0",
+    "rollup-plugin-bpmnlint": "^0.4.1",
+    "rollup-plugin-terser": "^7.0.2"
   },
   "author": "",
   "license": "MIT",

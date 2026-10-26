@@ -38,9 +38,9 @@
       <div class="chat-header">Text-to-BPMN 2.0</div>
       <div id="chat-log" class="chat-log"></div>
 
-      <div class="file-drop-area" id="file-drop-area">
-        <input type="file" id="file-input" multiple accept=".txt,.pdf,image/*">
-        <p>Drag image or .txt/.pdf files here to add to chat</p>
+      <div class="file-drop-area" id="file-drop-area" title="Haz clic o arrastra ficheros para cargarlos">
+        <input type="file" id="file-input" multiple accept=".bpmn,.xml,.txt,.pdf,.md,image/*">
+        <p><i class="fa-solid fa-cloud-arrow-up" style="margin-right: 6px;"></i> Arrastra ficheros o haz clic para cargar (.bpmn, .xml, .pdf, .txt, imágenes)</p>
       </div>
 
       <div class="input-wrap">
@@ -49,11 +49,12 @@
     <textarea id="chat-message" rows="1" placeholder="Insert your process description..."></textarea>
 
     <div class="model-toggle-wrap">
-      <button id="model-toggle" class="model-toggle" type="button" title="Use DeepSeek Reasoner">
+      <button id="model-toggle" class="model-toggle" type="button" title="Use Reasoning mode">
         Reasoner: <span id="model-status">Off</span>
       </button>
       <select id="global-model-select" class="global-model-select">
-        <option value="deepseek" selected>DeepSeek</option>
+        <option value="local" selected>Local LLM (detecting...)</option>
+        <option value="deepseek">DeepSeek</option>
         <option value="chatgpt">ChatGPT</option>
       </select>
     </div>
@@ -66,18 +67,21 @@
 
       <!-- Input footer (guide) -->
       <div class="input-footer">
-        <span class="input-hint">Press Shift + Enter for new line</span>
+        <span class="input-hint">Shift + Enter para nueva línea</span>
+        <button type="button" class="attach-link" id="attach-file-btn" title="Cargar ficheros (.bpmn, .xml, .pdf, .txt, imágenes)">
+          <i class="fa-solid fa-paperclip"></i> Cargar archivo
+        </button>
         <a href="#" class="template-link" id="template-link">Prompt Guide
           <svg viewBox="0 0 24 24" style="transform: rotate(180deg);"><path d="M7 10l5 5 5-5z" /></svg>
         </a>
         <div class="template-popup" id="template-popup">
           <strong>Prompt Guide:</strong>
           <ul>
-            <li>Choose first you prefered model.</li>
-            <li>Describe your process clearly</li>
+            <li>Choose first your preferred model.</li>
+            <li>Describe your process clearly.</li>
             <li>Use tasks, events, gateways explicitly.</li>
             <li>Mention BPMN elements needed.</li>
-            <li>Upload files if necessary.</li>
+            <li>Upload files if necessary (.bpmn, .xml, .pdf, .txt, images).</li>
           </ul>
         </div>
       </div>
@@ -102,10 +106,14 @@
           </div>
 
           <button id="autoLayout"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Layout</button>
+          <button id="toggleColors" class="active" title="Toggle Standard BPMN Colors"><i class="fa-solid fa-palette"></i> Colors</button>
         </div>
         <div class="button-group">
+          <input type="file" id="bpmn-file-input" accept=".bpmn,.xml" style="display: none;">
+          <button id="importBPMN" title="Cargar archivo BPMN / XML (.bpmn, .xml)"><i class='bx bx-upload'></i>Cargar BPMN</button>
           <button id="exportSVG"><i class='bx bx-image'></i>Download Image</button>
           <button id="exportXML"><i class='bx bx-download'></i>Export BPMN</button>
+          <button id="exportDrawio" title="Export compatible with Draw.io (.drawio)"><i class='bx bx-export'></i>Export Draw.io</button>
         </div>
       </div>
     </div>

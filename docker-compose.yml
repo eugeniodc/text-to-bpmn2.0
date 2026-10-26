@@ -1,0 +1,26 @@
+services:
+  text-to-bpmn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: text-to-bpmn
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - LOCAL_LLM_URL=${LOCAL_LLM_URL:-http://host.docker.internal:8000/v1}
+      - LOCAL_LLM_API_KEY=${LOCAL_LLM_API_KEY:-}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./server.js:/app/server.js
+      - ./system_prompt.txt:/app/system_prompt.txt
+      - ./public:/app/public
+      - ./scripts:/app/scripts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
