@@ -1,0 +1,17 @@
+Proceso con piscina y carriles (Swimlanes) para la tramitación de pedidos:
+
+Crear un diagrama con una piscina principal "Empresa de Distribución" que contenga tres carriles (lanes):
+- Carril "Atención al Cliente"
+- Carril "Almacén y Expediciones"
+- Carril "Administración y Facturación"
+
+Flujo de actividades:
+1. En el carril "Atención al Cliente", el proceso comienza con el evento de inicio "Pedido recibido".
+2. En "Atención al Cliente", se realiza la tarea de usuario "Validar datos del pedido y solvencia".
+3. Se evalúa con una compuerta exclusiva "¿Datos válidos?":
+   - Rama "No": se realiza la tarea de envío "Notificar incidencia al cliente" y termina en "Pedido cancelado".
+   - Rama "Sí": el flujo se traslada al carril "Almacén y Expediciones".
+4. En "Almacén y Expediciones", se realiza la tarea de usuario "Preparar paquete y embalaje", y a continuación la tarea manual "Entregar bulto a empresa de transporte".
+5. Posteriormente, el flujo pasa al carril "Administración y Facturación".
+6. En "Administración y Facturación", se realiza la tarea de servicio "Emitir y registrar factura electrónica", seguida de la tarea de envío "Remitir factura por email".
+7. El proceso termina en el carril de Facturación con el evento de fin "Pedido completado y facturado".

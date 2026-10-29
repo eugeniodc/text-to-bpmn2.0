@@ -16,7 +16,8 @@ Text-to-BPMN 2.0/
 ├── .env                         # where API keys are stored (keep secret)
 ├── rollup.config.mjs            # bundles app.js into bundle-app.js
 ├── server.js                    # Node.js backend and API handler
-├── system_prompt.txt
+├── system_prompt.txt            # standard visual BPMN prompt
+├── system_prompt_camunda.txt    # Camunda 8 (Zeebe) executable BPMN prompt
 ├── .bpmnlintrc                  # validation rules for BPMN Lint
 ├── public/
 │   ├── index.html
@@ -78,6 +79,33 @@ http://localhost:3000
 ```
 
 ✅ Text-to-BPMN2.0 app will be live on your local machine.
+
+---
+
+## 🐳 How to Run with Docker
+
+You can run the application containerized using Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+The application will be accessible at:
+```
+http://localhost:3000
+```
+
+### Docker Commands Summary
+
+| Command | What it does |
+|:---|:---|
+| `docker compose up -d` | Start the container in background |
+| `docker compose logs -f` | View real-time logs |
+| `docker compose restart` | Restart the container |
+| `docker compose down` | Stop and remove container |
+| `docker compose exec text-to-bpmn sh` | Open interactive shell in container |
+| `docker compose exec text-to-bpmn npm run convert:drawio` | Convert BPMN diagrams to Draw.io |
+| `docker compose up --build -d` | Rebuild image after dependency/config changes |
 
 ---
 

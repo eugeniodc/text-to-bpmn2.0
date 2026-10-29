@@ -1,0 +1,18 @@
+Proceso de gestión de incidentes de IT (ITIL) con múltiples niveles y reglas de negocio:
+
+1. Se inicia con el evento de inicio por mensaje "Ticket de soporte recibido".
+2. La tarea de regla de negocio "Calcular criticidad y SLA según impacto" evalúa la urgencia.
+3. El técnico de Soporte N1 realiza la tarea de usuario "Diagnosticar y primer intento de solución".
+4. Una compuerta exclusiva "¿Resuelto en primer nivel?":
+   - Rama "Sí": pasa a la tarea de usuario "Redactar solución y verificar con usuario" y termina en "Ticket cerrado con éxito".
+   - Rama "No": se realiza la tarea de servicio "Escalar incidencia a Nivel 2".
+5. Una compuerta paralela divide la atención técnica en dos flujos:
+   - Rama A: la tarea de usuario "Investigación técnica avanzada por Soporte N2".
+   - Rama B: la tarea de envío "Actualizar al cliente sobre el estado del ticket cada 30 minutos".
+6. Ambas ramas se sincronizan en una compuerta paralela "Consolidar diagnóstico".
+7. Se evalúa en una compuerta exclusiva "¿Requiere parche de código por desarrollo?":
+   - Rama "Sí": se invoca una llamada a actividad (Call Activity) llamada "Proceso de Hotfix de Software".
+   - Rama "No": se realiza la tarea de servicio "Aplicar cambio de configuración en servidores".
+8. Ambas alternativas se unen a través de una compuerta exclusiva "Merge Solución".
+9. Se ejecuta la tarea de usuario "Validar restauración del servicio en producción".
+10. Finaliza en el evento de fin "Incidencia resuelta y cerrada".

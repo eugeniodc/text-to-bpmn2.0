@@ -1,0 +1,14 @@
+Proceso de compra online con subproceso embebido, temporizador y eventos de límite:
+
+1. El usuario inicia el proceso con el evento de inicio "Carrito confirmado".
+2. Se ejecuta un subproceso embebido llamado "Gestión de Pago y Reserva de Stock" que contiene:
+   - Evento de inicio del subproceso.
+   - Tarea de servicio "Bloquear inventario en almacén".
+   - Tarea de servicio "Procesar cobro en pasarela bancaria".
+   - Evento de fin del subproceso.
+3. El subproceso tiene adjunto un evento de límite por temporizador (Boundary Timer Event) con tiempo de expiración de 15 minutos:
+   - Si vence el temporizador, se interrumpe el subproceso, se pasa a la tarea de servicio "Liberar stock bloqueado" y se finaliza con el evento de fin de terminación "Compra expirada por timeout".
+4. El subproceso tiene también adjunto un evento de límite por error (Boundary Error Event) "Fallo en pasarela de pago":
+   - En caso de error, el flujo va a la tarea de envío "Notificar tarjeta rechazada al cliente" y termina en "Transacción rechazada".
+5. En la salida normal del subproceso, se pasa a un evento intermedio de captura de temporizador "Esperar 1 hora para consolidación de pedido".
+6. Finalmente, se ejecuta la tarea de servicio "Generar albarán y etiqueta de transporte" y termina en el evento de fin "Pedido preparado para envío".

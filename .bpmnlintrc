@@ -2,6 +2,8 @@
   "extends": "bpmnlint:recommended",
   "rules": {
     "no-inclusive-gateway": "warn",
-    "no-bpmndi": "off"
+    "no-bpmndi": "off",
+    "fake-join": "error",
+    "superfluous-gateway": "error"
   }
 }

@@ -52,10 +52,14 @@
       <button id="model-toggle" class="model-toggle" type="button" title="Use Reasoning mode">
         Reasoner: <span id="model-status">Off</span>
       </button>
-      <select id="global-model-select" class="global-model-select">
+      <select id="global-model-select" class="global-model-select" title="Seleccionar Modelo LLM">
         <option value="local" selected>Local LLM (detecting...)</option>
         <option value="deepseek">DeepSeek</option>
         <option value="chatgpt">ChatGPT</option>
+      </select>
+      <select id="target-engine-select" class="global-model-select target-engine-select" title="Seleccionar Motor / Modo de BPMN">
+        <option value="camunda8" selected>⚡ Camunda 8 (Zeebe)</option>
+        <option value="standard">BPMN Estándar</option>
       </select>
     </div>
   </div>
@@ -90,7 +94,10 @@
 
     <!-- Diagram area -->
     <div class="diagram-pane">
-      <div class="chat-header">Flowchart</div>
+      <div class="chat-header diagram-header">
+        <span>Flowchart</span>
+        <span id="engine-badge" class="engine-badge camunda">⚡ Camunda 8</span>
+      </div>
       <button class="fullscreen-toggle" id="toggleFullscreen">
         <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm10 3h-3v2h5v-5h-2v3zM7 7h3V5H5v5h2V7zm10 2h2V5h-5v2h3v2z"/></svg>
         <span id="fullscreen-label">Expand</span>
@@ -115,6 +122,7 @@
         <div class="button-group">
           <input type="file" id="bpmn-file-input" accept=".bpmn,.xml" style="display: none;">
           <button id="importBPMN" title="Cargar archivo BPMN / XML (.bpmn, .xml)"><i class='bx bx-upload'></i>Cargar BPMN</button>
+          <button id="btn-view-d2" class="btn-d2-trigger" title="Ver representación moderna con D2"><i class="fa-solid fa-gem" style="color: #6366f1;"></i> Vista D2</button>
           <button id="exportSVG"><i class='bx bx-image'></i>Download Image</button>
           <button id="exportXML"><i class='bx bx-download'></i>Export BPMN</button>
           <button id="exportDrawio" title="Export compatible with Draw.io (.drawio)"><i class='bx bx-export'></i>Export Draw.io</button>
@@ -145,6 +153,48 @@
           <i class="fa-solid fa-bolt"></i> Reparación Rápida
         </button>
         <button id="btn-fix-cancel" class="btn-fix-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for D2 Modern Architecture & Flow View -->
+  <div id="d2-modal" class="d2-modal-backdrop" style="display: none;">
+    <div class="d2-modal-card">
+      <div class="d2-modal-header">
+        <div class="d2-modal-title">
+          <i class="fa-solid fa-gem" style="color: #818cf8; margin-right: 8px;"></i>
+          Representación Gráfica Moderna (D2 Declarative Diagram)
+        </div>
+        <div class="d2-modal-controls">
+          <label class="d2-control-label">Tema:
+            <select id="d2-theme-select" class="d2-select">
+              <option value="105" selected>Buttered Toast (105)</option>
+              <option value="4">Cool Classics (4)</option>
+              <option value="0">Neutral Default (0)</option>
+              <option value="3">Flagship Terrastruct (3)</option>
+              <option value="6">Grape Soda (6)</option>
+              <option value="300">Terminal Dark (300)</option>
+              <option value="302">Origami (302)</option>
+              <option value="200">Dark Mauve (200)</option>
+            </select>
+          </label>
+          <label class="d2-control-label">Layout:
+            <select id="d2-layout-select" class="d2-select">
+              <option value="elk" selected>ELK (Ortogonal)</option>
+              <option value="dagre">Dagre (Jerárquico)</option>
+            </select>
+          </label>
+          <button id="btn-d2-copy-code" class="btn-d2-action" title="Copiar código D2"><i class="fa-regular fa-copy"></i> Copiar D2</button>
+          <button id="btn-d2-download-svg" class="btn-d2-action" title="Descargar SVG de alta resolución"><i class="fa-solid fa-download"></i> Descargar SVG</button>
+          <button id="btn-d2-download-code" class="btn-d2-action" title="Descargar archivo .d2"><i class="fa-solid fa-file-code"></i> .d2</button>
+          <button id="d2-modal-close" class="fix-modal-close-btn" aria-label="Cerrar">&times;</button>
+        </div>
+      </div>
+      <div class="d2-modal-body">
+        <div id="d2-loading" class="d2-loading" style="display: none;">
+          <i class="fa-solid fa-spinner fa-spin"></i> Generando representación D2 de alta fidelidad...
+        </div>
+        <div id="d2-svg-container" class="d2-svg-container"></div>
       </div>
     </div>
   </div>

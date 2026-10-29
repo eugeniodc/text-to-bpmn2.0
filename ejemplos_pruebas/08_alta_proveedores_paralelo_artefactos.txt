@@ -1,0 +1,12 @@
+Proceso de alta y homologación de proveedores con múltiples departamentos, revisiones en paralelo y artefactos duplicados para evitar cruces:
+
+1. El proceso comienza cuando una organización recibe una solicitud de alta de proveedor mediante un evento de inicio por mensaje en el carril "Compras".
+2. La tarea de usuario "Registrar petición y apertura de expediente" en Compras genera como salida el objeto de datos "Expediente de Alta [Iniciado]" y actualiza el almacén de datos "Portal SRM Proveedores". Se añade una anotación con el comentario "SLA: Registro inicial en menos de 4h".
+3. Se ejecuta una compuerta paralela "Iniciar Revisiones en Paralelo" que bifurca el flujo en dos departamentos simultáneos:
+   - En el carril "Finanzas", la tarea de servicio "Validar datos fiscales y solvencia" toma como entrada el objeto de datos duplicado "Expediente de Alta [Revisión Fiscal]", consulta y actualiza el almacén "Sistema ERP Contable", y cuenta con la anotación "Comprobación obligatoria VIES y certificados tributarios".
+   - En el carril "Seguridad", la tarea de usuario "Revisar requisitos de acceso y cumplimiento" toma como entrada el objeto de datos duplicado "Expediente de Alta [Revisión Seguridad]", consulta el almacén "Directorio de Accesos y Seguridad", y tiene la anotación "Verificación ISO 27001 y políticas ENS".
+4. Una compuerta paralela de sincronización "Sincronizar Revisiones Completadas" espera a que ambos departamentos finalicen.
+5. De regreso en Compras, la tarea de usuario "Evaluar dictámenes y decidir aprobación" toma el objeto de datos "Dictamen Consolidado [Resolución]".
+6. Una compuerta exclusiva "¿Solicitud Aprobada?" evalúa la decisión con la anotación "Criterio: Ambas revisiones deben ser favorables":
+   - Rama "Sí": La tarea de envío "Comunicar alta y activar credenciales" genera el objeto de datos "Certificado Oficial de Alta", actualiza el almacén "Maestro de Proveedores ERP" y finaliza en el evento de fin con mensaje "Alta completada con éxito".
+   - Rama "No": La tarea de envío "Notificar resolución de rechazo" genera el objeto de datos "Notificación de Rechazo con Causas" y termina en el evento de fin "Solicitud de proveedor desestimada".

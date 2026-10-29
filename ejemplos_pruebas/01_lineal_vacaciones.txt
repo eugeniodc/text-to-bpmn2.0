@@ -1,0 +1,6 @@
+Proceso de solicitud de vacaciones de un empleado:
+1. El empleado inicia el proceso mediante una tarea de usuario llamada "Rellenar solicitud de vacaciones" donde indica las fechas deseadas.
+2. El sistema ejecuta una tarea de servicio automática llamada "Verificar saldo de días disponibles" en el sistema de gestión de personal.
+3. El supervisor realiza una tarea de usuario llamada "Revisar y validar solicitud".
+4. El sistema ejecuta una tarea de envío llamada "Enviar notificación de confirmación al empleado" por correo electrónico.
+5. El proceso finaliza con un evento de fin estándar "Vacaciones registradas".

@@ -1,0 +1,9 @@
+Proceso de gestión de facturas de proveedores con objetos de datos y almacenes de datos:
+
+1. El proceso comienza con el evento de inicio por mensaje "Recepción de factura PDF de proveedor".
+2. La tarea de usuario "Registrar datos de la factura" genera y produce como salida el objeto de datos "Factura Digitalizada [DataObject]".
+3. La tarea de servicio "Comprobar orden de compra en el ERP" toma como entrada el objeto de datos "Factura Digitalizada" y consulta el almacén de datos "Base de Datos ERP SAP [DataStore]".
+4. Se utiliza una compuerta exclusiva "¿Coincide importe con orden?":
+   - Rama "No": se añade una anotación de texto con el comentario "Diferencia superior al 2% requiere escalado manual", se ejecuta la tarea de usuario "Auditar discrepancia con proveedor" y termina en "Factura retenida".
+   - Rama "Sí": la tarea de servicio "Registrar apunte contable y orden de pago" actualiza el almacén de datos "Base de Datos ERP SAP [DataStore]" y produce el objeto de datos "Orden de Pago Aprobada [DataObject]".
+5. La tarea de envío "Mandar acuse de recibo de pago" toma la "Orden de Pago Aprobada" y finaliza en el evento de fin "Factura abonada con éxito".

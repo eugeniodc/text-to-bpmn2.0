@@ -16,6 +16,7 @@ CRITICAL: PREVENT "No valid BPMN XML found in the response"
    - [ ] Every flow node has matching <bpmn:incoming> and <bpmn:outgoing> tags pointing to valid <bpmn:sequenceFlow> IDs.
    - [ ] NO FAKE JOINS: No Activity/Task has more than ONE <bpmn:incoming> tag. All converging flows (such as loopbacks or alternative branches) merge through an explicit Gateway first.
    - [ ] Every <bpmn:sequenceFlow ... /> is self-closing and has valid sourceRef and targetRef.
+   - [ ] Strict XML tag prefix: Every single BPMN element MUST use the exact prefix "bpmn:" (e.g. <bpmn:flowNodeRef>, <bpmn:lane>, <bpmn:userTask>, <bpmn:sequenceFlow>), NEVER typo prefixes like "bn:" or "bp:".
    - [ ] Strictly closed tags: ends cleanly with </bpmn:process></bpmn:definitions>```.
 5. ONLY EXCEPTION: If the user prompt contains zero process information (e.g. just "hola"), return ONLY:
    "No valid business process description detected. Please provide a clear description to continue."
@@ -47,6 +48,34 @@ CRITICAL: NO "FAKE JOINS" (bpmnlint rule: fake-join)
       * The merging Gateway receives the converging sequence flows, and emits a SINGLE outgoing sequence flow into the task.
       * Connecting multiple flows directly into a task causes the linter error: "Incoming flows do not join [fake-join]".
 
+======================================================================
+CRITICAL: PROFESSIONAL BUSINESS DETAIL, ORDER & BALANCED ARTIFACTS
+======================================================================
+To make the generated BPMN 2.0 diagram look exceptionally clean, balanced, and orderly without line clutter or visual chaos:
+
+11. STRICT MODERATION & BALANCED DENSITY (NEVER OVERLOAD WITH TOO MANY ARTIFACTS):
+    - Visual clarity is paramount. Placing comments and documents on every task creates visual chaos ("desorden") and tangled lines.
+    - MAXIMUM 1 TO 2 TEXT ANNOTATIONS (<bpmn:textAnnotation>) per entire diagram: Place them strictly on crucial decision points (gateways) or tasks with a critical SLA/rule (e.g. "SLA: Resolución en 24h laborables" or "Criterio: Importes > 5.000€ requieren visto bueno de Dirección"). NEVER add annotations to routine tasks.
+    - MAXIMUM 1 TO 2 DATA OBJECTS (<bpmn:dataObjectReference>) per entire diagram: Model only the primary core document flowing through the process (e.g. "Solicitud de Vacaciones", "Factura de Proveedor", "Expediente de Contratación"). DO NOT create a new document for every step.
+    - MAXIMUM 1 DATA STORE (<bpmn:dataStoreReference>) per entire diagram: Represent the central database or system of record (e.g. "Base de Datos ERP", "CRM de Clientes").
+    - NEVER ATTACH MORE THAN 1 ARTIFACT to the same side of any task. An element should have at most ONE artifact above (annotation or input document) and at most ONE artifact below (data store or output document). Overloading a node with 3 or 4 artifacts creates line crossing and disorder.
+
+12. PROHIBIDO COMPARTIR ARTEFACTOS ENTRE VARIOS OBJETOS DE ACCIÓN (DUPLICACIÓN OBLIGATORIA):
+    - NUNCA compartas un mismo <bpmn:dataObjectReference>, <bpmn:dataStoreReference> o <bpmn:textAnnotation> entre múltiples tareas o compuertas.
+    - Compartir un artefacto entre varias tareas genera líneas de asociación largas que cruzan carriles, atraviesan otros objetos y se solapan.
+    - SI UNA TAREA PRODUCE UN DOCUMENTO Y OTRA TAREA POSTERIOR LO CONSULTA, DUPLICA EL OBJETO DE DATOS:
+      * Tarea 1 (productora): <bpmn:dataOutputAssociation> hacia <bpmn:dataObjectReference id="Doc_Factura_Emitida" name="Factura [Emitida]">.
+      * Tarea 2 (consumidora): <bpmn:dataInputAssociation> desde un objeto de datos DUPLICADO <bpmn:dataObjectReference id="Doc_Factura_Revisada" name="Factura [Revisada]">.
+    - SI VARIAS TAREAS CONSULTAN O ACTUALIZAN UNA BASE DE DATOS O ERP, DUPLICA EL ALMACÉN DE DATOS:
+      * Tarea A (consulta): conectada a <bpmn:dataStoreReference id="Store_ERP_1" name="Base de Datos ERP">.
+      * Tarea B (actualiza): conectada a un almacén DUPLICADO <bpmn:dataStoreReference id="Store_ERP_2" name="Base de Datos ERP">.
+    - CADA ARTEFACTO DEBE ESTAR VINCULADO EXCLUSIVAMENTE A UNA ÚNICA TAREA: De este modo, cada conexión es una línea vertical 100% recta y local a su carril (0 curvas, 0 cruces entre carriles, 0 solapamientos).
+    - Text Annotations: Conectar estrictamente con <bpmn:association id="Assoc_1" sourceRef="Annotation_1" targetRef="[Target_ID]" />. Cada anotación debe pertenecer a exactamente UN elemento.
+
+13. DESCRIPTIVE NAMES & EXPLICIT GATEWAY CONDITIONS:
+    - Give tasks descriptive, action-oriented names (e.g. "Revisar justificantes y tickets de gasto" instead of just "Revisar").
+    - ALWAYS label outgoing sequence flows from gateways with explicit condition names (e.g. name="Aprobado", name="Requiere subsanación", name="Rechazado").
+
 
 ======================================================================
 SUPPORTED BPMN 2.0 OBJECTS & NATURAL LANGUAGE MAPPING
@@ -70,8 +99,21 @@ Accurately identify and map user terms (in Spanish or English) to the exact BPMN
      Mentioned as: "tarea de script", "script task", "ejecutar script", "cálculo interno".
    - <bpmn:callActivity id="..." name="...">
      Mentioned as: "llamada a actividad", "call activity", "proceso reutilizable", "subproceso externo".
-   - <bpmn:subProcess id="..." name="...">
+   - <bpmn:subProcess id="SubProcess_1" name="[Sub-process Name]">
      Mentioned as: "subproceso", "sub-process", "proceso anidado". Encapsulates internal flow nodes within the process.
+     Structure of embedded sub-process:
+     <bpmn:subProcess id="SubProcess_1" name="[Sub-process Name]">
+       <bpmn:incoming>Flow_to_sub</bpmn:incoming>
+       <bpmn:outgoing>Flow_from_sub</bpmn:outgoing>
+       <bpmn:startEvent id="SubStart_1" name="Inicio">
+         <bpmn:outgoing>SubFlow_1</bpmn:outgoing>
+       </bpmn:startEvent>
+       <bpmn:sequenceFlow id="SubFlow_1" sourceRef="SubStart_1" targetRef="SubTask_1" />
+       <!-- internal tasks and sequence flows inside subProcess -->
+       <bpmn:endEvent id="SubEnd_1" name="Fin">
+         <bpmn:incoming>SubFlow_last</bpmn:incoming>
+       </bpmn:endEvent>
+     </bpmn:subProcess>
    - <bpmn:task id="..." name="...">
      Mentioned as: "tarea", "actividad", "task" (used when generic/unspecified).
 
@@ -97,10 +139,17 @@ Accurately identify and map user terms (in Spanish or English) to the exact BPMN
      * Terminate: <bpmn:endEvent id="..." name="..."><bpmn:terminateEventDefinition id="..." /></bpmn:endEvent> ("fin de terminación", "cancelación total")
      * Error: <bpmn:endEvent id="..." name="..."><bpmn:errorEventDefinition id="..." /></bpmn:endEvent> ("fin de error", "fallo", "cancelado con error")
      * Message: <bpmn:endEvent id="..." name="..."><bpmn:messageEventDefinition id="..." /></bpmn:endEvent> ("fin con notificación / mensaje")
-   - Intermediate Events:
-     * Catching: <bpmn:intermediateCatchEvent id="..." name="..."> ("espera de mensaje", "esperar 48h")
-     * Throwing: <bpmn:intermediateThrowEvent id="..." name="..."> ("lanzamiento de evento / señal")
-     * Boundary: <bpmn:boundaryEvent id="..." name="..." attachedToRef="[Task_ID]" cancelActivity="true"> ("evento de límite", "timeout en tarea", "en caso de error en tarea")
+   - Intermediate Events (Catching events MUST contain a specific eventDefinition):
+     * Timer: <bpmn:intermediateCatchEvent id="..." name="..."><bpmn:incoming>...</bpmn:incoming><bpmn:outgoing>...</bpmn:outgoing><bpmn:timerEventDefinition id="..." /></bpmn:intermediateCatchEvent> ("esperar 1 hora", "temporizador 48h")
+     * Message: <bpmn:intermediateCatchEvent id="..." name="..."><bpmn:incoming>...</bpmn:incoming><bpmn:outgoing>...</bpmn:outgoing><bpmn:messageEventDefinition id="..." /></bpmn:intermediateCatchEvent> ("esperar mensaje", "recibir confirmación")
+     * Signal: <bpmn:intermediateCatchEvent id="..." name="..."><bpmn:incoming>...</bpmn:incoming><bpmn:outgoing>...</bpmn:outgoing><bpmn:signalEventDefinition id="..." /></bpmn:intermediateCatchEvent> ("esperar señal")
+   - Intermediate Throwing Events:
+     * Standard: <bpmn:intermediateThrowEvent id="..." name="..." />
+     * Signal: <bpmn:intermediateThrowEvent id="..." name="..."><bpmn:signalEventDefinition id="..." /></bpmn:intermediateThrowEvent>
+   - Boundary Events (attached to Task or SubProcess, declared as direct child of <bpmn:process>, NOT inside subProcess):
+     * Timer Boundary: <bpmn:boundaryEvent id="..." name="..." attachedToRef="[Task_or_SubProcess_ID]" cancelActivity="true"><bpmn:outgoing>...</bpmn:outgoing><bpmn:timerEventDefinition id="..." /></bpmn:boundaryEvent> ("expiración de 15 min", "timeout")
+     * Error Boundary: <bpmn:boundaryEvent id="..." name="..." attachedToRef="[Task_or_SubProcess_ID]"><bpmn:outgoing>...</bpmn:outgoing><bpmn:errorEventDefinition id="..." /></bpmn:boundaryEvent> ("en caso de error", "fallo pasarela")
+     * Message Boundary: <bpmn:boundaryEvent id="..." name="..." attachedToRef="[Task_or_SubProcess_ID]"><bpmn:outgoing>...</bpmn:outgoing><bpmn:messageEventDefinition id="..." /></bpmn:boundaryEvent>
 
 4. DATA & ARTIFACTS AND DATA ASSOCIATIONS:
    - Data Object:

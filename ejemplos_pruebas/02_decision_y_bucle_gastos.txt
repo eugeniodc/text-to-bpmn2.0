@@ -1,0 +1,9 @@
+Proceso de aprobación de informe de gastos con correcciones y bucle de retorno:
+
+1. El empleado envía el informe con la tarea de usuario "Registrar informe de gastos".
+2. Pasa a una compuerta exclusiva de unión "Merge_Revision" (o punto de entrada a revisión).
+3. El responsable financiero realiza la tarea de usuario "Revisar justificantes y tickets".
+4. Se evalúa en una compuerta exclusiva "Decisión de aprobación":
+   - Rama "Aprobado": pasa a la tarea de servicio "Programar transferencia bancaria" y termina en "Reembolso efectuado".
+   - Rama "Rechazado": pasa a la tarea de envío "Notificar denegación con motivo" y termina en el evento de fin "Gasto no reembolsable".
+   - Rama "Requiere corrección": se envía al empleado la tarea de usuario "Subsanar o adjuntar documentación faltante". Desde esta tarea, el flujo regresa a la compuerta exclusiva de unión previa a la revisión para volver a evaluar el informe.

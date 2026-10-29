@@ -246,8 +246,46 @@ body {
 
 #canvas {
   flex: 1;
-  background: #fff;
+  background-color: #fafbfc;
+  background-image: radial-gradient(#cbd5e1 1.25px, transparent 1.25px);
+  background-size: 20px 20px;
+  background-position: 0 0;
   transition: outline .15s ease, background-color .15s ease;
+  position: relative;
+}
+
+/* Modern styling for BPMN-JS canvas elements */
+.djs-container svg {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Subtle rounded corners and smooth shadows for tasks */
+.djs-shape.bpmn-task .djs-visual rect,
+.djs-visual rect {
+  rx: 8px !important;
+  ry: 8px !important;
+}
+
+/* Crisp and legible text typography */
+.djs-label text,
+.djs-visual text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.15px;
+}
+
+/* Antialiased smooth sequence flow paths */
+.djs-connection .djs-visual path {
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* Modern interactive selection outline */
+.djs-shape.selected .djs-outline,
+.djs-connection.selected .djs-outline {
+  stroke: #6366f1 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 4, 4 !important;
 }
 
 #canvas.dragover {
@@ -488,11 +526,50 @@ body {
   background: #fff;
   color: #111827;
   padding: 5px 10px;
-  margin-left: 0.75rem;
+  margin-left: 0.5rem;
   border-radius: 6px;
   border: 1px solid #ccc;
   font-size: 0.8rem;
   outline: none;
+}
+
+.target-engine-select {
+  border-color: #ea580c;
+  color: #c2410c;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.engine-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 7.5rem;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.engine-badge.camunda {
+  background: #ff5722;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 87, 34, 0.35);
+}
+
+.engine-badge.standard {
+  background: #0284c7;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
 }
 
 .msg-header {
@@ -1018,4 +1095,144 @@ body {
 }
 .btn-fix-cancel:hover {
   color: #e5e7eb;
+}
+
+/* ─────────── D2 MODAL & BUTTON STYLES ─────────── */
+.btn-d2-trigger {
+  border-color: #6366f1 !important;
+  color: #4338ca !important;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-d2-trigger:hover {
+  background-color: #eef2ff !important;
+}
+
+.d2-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.d2-modal-card {
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  width: 95%;
+  max-width: 1250px;
+  height: 90vh;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.d2-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #1e293b;
+  background-color: #1e293b;
+}
+
+.d2-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.d2-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.d2-control-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.d2-select {
+  background: #0f172a;
+  color: #f1f5f9;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-d2-action {
+  background-color: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.btn-d2-action:hover {
+  background-color: #475569;
+  border-color: #64748b;
+}
+
+.d2-modal-body {
+  flex: 1;
+  padding: 20px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  position: relative;
+}
+
+.d2-loading {
+  font-size: 15px;
+  color: #818cf8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.d2-svg-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.d2-svg-container svg {
+  max-width: 95%;
+  max-height: 95%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  background: transparent;
 }

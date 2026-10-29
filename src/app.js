@@ -36,6 +36,31 @@ function toggleFullscreen() {
   fullscreenLabel.textContent = isFullscreen ? 'Collapse' : 'Expand';
 }
 
+/* ─────────── ENGINE SELECTION & BADGE ─────────── */
+const engineSelect = document.getElementById('target-engine-select');
+const engineBadge = document.getElementById('engine-badge');
+
+function updateEngineBadge() {
+  if (!engineBadge) return;
+  const isCamunda = engineSelect ? engineSelect.value === 'camunda8' : true;
+  engineBadge.textContent = isCamunda ? '⚡ Camunda 8' : '📄 Estándar';
+  engineBadge.className = `engine-badge ${isCamunda ? 'camunda' : 'standard'}`;
+  if (engineSelect) {
+    if (isCamunda) {
+      engineSelect.style.borderColor = '#ea580c';
+      engineSelect.style.color = '#c2410c';
+    } else {
+      engineSelect.style.borderColor = '#0284c7';
+      engineSelect.style.color = '#0369a1';
+    }
+  }
+}
+
+if (engineSelect) {
+  engineSelect.addEventListener('change', updateEngineBadge);
+  updateEngineBadge();
+}
+
 
 /* ──── LOAD DEFAULT BPMN DIAGRAM FROM EXTERNAL FILE ───── */
 
@@ -99,12 +124,12 @@ chatInput.addEventListener('keydown', e => {
 async function callModelAPI(prompt, onDataChunk) {
   const model = document.getElementById('global-model-select').value;
   const reasoner = document.getElementById('model-status').innerText.trim().toLowerCase() === 'on';
- // true or false
+  const targetEngine = document.getElementById('target-engine-select')?.value || 'camunda8';
 
   const response = await fetch('/api/process', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, model, reasoner})
+    body: JSON.stringify({ prompt, model, reasoner, targetEngine })
   });
 
   const reader = response.body.getReader();
@@ -363,8 +388,17 @@ async function tryImportBpmn(xml) {
     return;
   }
 
+  // Normalize broken / typo prefixes (e.g. <bn:flowNodeRef>, <bp:tag>, <bpm:tag>, <bpmn2:tag>)
+  let cleanXml = xml.replace(/<\/?(?:bn|bpm|bpmn2|bp):([a-zA-Z0-9_-]+)/gi, (match, tag) => {
+    return match.startsWith('</') ? `</bpmn:${tag}` : `<bpmn:${tag}`;
+  });
+
+  // Normalize untyped tags without prefix
+  cleanXml = cleanXml.replace(/<(flowNodeRef|laneSet|lane|sequenceFlow|exclusiveGateway|parallelGateway|inclusiveGateway|complexGateway|eventBasedGateway|task|userTask|serviceTask|sendTask|receiveTask|manualTask|businessRuleTask|scriptTask|callActivity|subProcess|startEvent|endEvent|intermediateCatchEvent|intermediateThrowEvent|boundaryEvent|dataObjectReference|dataStoreReference|textAnnotation|association)\b/gi, '<bpmn:$1')
+                     .replace(/<\/(flowNodeRef|laneSet|lane|sequenceFlow|exclusiveGateway|parallelGateway|inclusiveGateway|complexGateway|eventBasedGateway|task|userTask|serviceTask|sendTask|receiveTask|manualTask|businessRuleTask|scriptTask|callActivity|subProcess|startEvent|endEvent|intermediateCatchEvent|intermediateThrowEvent|boundaryEvent|dataObjectReference|dataStoreReference|textAnnotation|association)>/gi, '</bpmn:$1>');
+
   // Normalize <bpmn:dataAssociation> directly under process into valid <bpmn:association>
-  let cleanXml = xml.replace(/<bpmn:dataAssociation\b/gi, '<bpmn:association')
+  cleanXml = cleanXml.replace(/<bpmn:dataAssociation\b/gi, '<bpmn:association')
                     .replace(/<\/bpmn:dataAssociation>/gi, '</bpmn:association>');
 
   // Ensure standard namespaces exist
@@ -373,6 +407,14 @@ async function tryImportBpmn(xml) {
       /(<(?:\w+:)?definitions)/i,
       '$1 xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI"'
     );
+  }
+
+  // Ensure alias namespaces exist to prevent parser crashes on any residual prefixes
+  if (!cleanXml.includes('xmlns:bn=')) {
+    cleanXml = cleanXml.replace(/(<(?:\w+:)?definitions\b[^>]*)/i, '$1 xmlns:bn="http://www.omg.org/spec/BPMN/20100524/MODEL"');
+  }
+  if (!cleanXml.includes('xmlns:bpmn2=')) {
+    cleanXml = cleanXml.replace(/(<(?:\w+:)?definitions\b[^>]*)/i, '$1 xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL"');
   }
 
   try {
@@ -548,12 +590,23 @@ async function loadBpmnXml(xmlContent, fileName = 'diagram.bpmn') {
     return false;
   }
 
+  // Normalize broken / typo prefixes (e.g. <bn:flowNodeRef>, <bp:tag>, <bpm:tag>, <bpmn2:tag>)
+  cleanXml = cleanXml.replace(/<\/?(?:bn|bpm|bpmn2|bp):([a-zA-Z0-9_-]+)/gi, (match, tag) => {
+    return match.startsWith('</') ? `</bpmn:${tag}` : `<bpmn:${tag}`;
+  });
+
   // Ensure standard BPMN namespaces exist if omitted
   if (!cleanXml.includes('xmlns:bpmn=')) {
     cleanXml = cleanXml.replace(
       /(<(?:\w+:)?definitions)/i,
       '$1 xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI"'
     );
+  }
+  if (!cleanXml.includes('xmlns:bn=')) {
+    cleanXml = cleanXml.replace(/(<(?:\w+:)?definitions\b[^>]*)/i, '$1 xmlns:bn="http://www.omg.org/spec/BPMN/20100524/MODEL"');
+  }
+  if (!cleanXml.includes('xmlns:bpmn2=')) {
+    cleanXml = cleanXml.replace(/(<(?:\w+:)?definitions\b[^>]*)/i, '$1 xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL"');
   }
 
   const hasDiagram = cleanXml.includes('bpmndi:BPMNDiagram') && cleanXml.includes('bpmndi:BPMNPlane');
@@ -640,7 +693,9 @@ const exportDrawioBtn = document.getElementById('exportDrawio');
 if (exportDrawioBtn) exportDrawioBtn.addEventListener('click', exportDrawio);
 
 function exportXML() {
-  modeler.saveXML({ format: true }).then(({ xml }) => download('diagram.bpmn', xml));
+  const isCamunda = document.getElementById('target-engine-select')?.value === 'camunda8';
+  const fileName = isCamunda ? 'diagram-camunda8.bpmn' : 'diagram.bpmn';
+  modeler.saveXML({ format: true }).then(({ xml }) => download(fileName, xml));
 }
 function exportSVG() {
   modeler.saveSVG().then(({ svg }) => download('diagram.svg', svg));
@@ -1260,6 +1315,147 @@ function fixFakeJoinsAlgorithmic(xmlString) {
   };
 }
 
+/* ─────────── D2 MODERN GRAPHICAL VIEW ─────────── */
+const btnViewD2 = document.getElementById('btn-view-d2');
+const d2Modal = document.getElementById('d2-modal');
+const d2ModalClose = document.getElementById('d2-modal-close');
+const d2ThemeSelect = document.getElementById('d2-theme-select');
+const d2LayoutSelect = document.getElementById('d2-layout-select');
+const d2SvgContainer = document.getElementById('d2-svg-container');
+const d2Loading = document.getElementById('d2-loading');
+const btnD2CopyCode = document.getElementById('btn-d2-copy-code');
+const btnD2DownloadSvg = document.getElementById('btn-d2-download-svg');
+const btnD2DownloadCode = document.getElementById('btn-d2-download-code');
+
+let currentD2Code = '';
+let currentD2Svg = '';
+
+async function loadAndRenderD2(xml) {
+  if (!d2Modal || !d2SvgContainer) return;
+  const theme = d2ThemeSelect ? d2ThemeSelect.value : '105';
+  const layout = d2LayoutSelect ? d2LayoutSelect.value : 'elk';
+
+  if (d2Loading) d2Loading.style.display = 'flex';
+  d2SvgContainer.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/render-d2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ xml, theme, layout })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    currentD2Svg = data.svg || '';
+    currentD2Code = data.d2 || '';
+
+    if (d2Loading) d2Loading.style.display = 'none';
+    d2SvgContainer.style.display = 'flex';
+
+    if (currentD2Svg) {
+      d2SvgContainer.innerHTML = currentD2Svg;
+    } else {
+      const encodedCode = encodeURIComponent(currentD2Code);
+      d2SvgContainer.innerHTML = `
+        <div style="width: 100%; max-width: 900px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; color: #f1f5f9;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px;">
+            <span style="font-weight: 600; font-size: 15px; color: #818cf8;"><i class="fa-solid fa-code"></i> Código D2 Generado</span>
+            <a href="https://play.d2lang.com/?script=${encodedCode}" target="_blank" rel="noopener noreferrer" class="btn-d2-action" style="color: #818cf8; text-decoration: none;">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir en D2 Playground
+            </a>
+          </div>
+          <pre style="background: #0f172a; padding: 15px; border-radius: 8px; overflow-x: auto; max-height: 400px; font-family: monospace; font-size: 13px; line-height: 1.5; color: #38bdf8;"><code>${escapeXml(currentD2Code)}</code></pre>
+          <div style="margin-top: 15px; font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i>
+            Código D2 listo. Para compilar el SVG directamente en el contenedor Docker, reinicia con <code>docker compose up --build -d</code>.
+          </div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('Error rendering D2:', err);
+    if (d2Loading) d2Loading.style.display = 'none';
+    d2SvgContainer.style.display = 'flex';
+    d2SvgContainer.innerHTML = `<div style="color: #ef4444; padding: 20px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Error al generar vista D2: ${err.message}</div>`;
+  }
+}
+
+async function openD2Modal() {
+  if (!d2Modal) return;
+  d2Modal.style.display = 'flex';
+
+  try {
+    const { xml } = await modeler.saveXML({ format: true });
+    await loadAndRenderD2(xml);
+  } catch (err) {
+    console.error('Error opening D2 modal:', err);
+  }
+}
+
+function closeD2Modal() {
+  if (d2Modal) d2Modal.style.display = 'none';
+}
+
+if (btnViewD2) btnViewD2.addEventListener('click', openD2Modal);
+if (d2ModalClose) d2ModalClose.addEventListener('click', closeD2Modal);
+if (d2Modal) {
+  d2Modal.addEventListener('click', e => {
+    if (e.target === d2Modal) closeD2Modal();
+  });
+}
+
+if (d2ThemeSelect) {
+  d2ThemeSelect.addEventListener('change', async () => {
+    try {
+      const { xml } = await modeler.saveXML({ format: true });
+      await loadAndRenderD2(xml);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
+
+if (d2LayoutSelect) {
+  d2LayoutSelect.addEventListener('change', async () => {
+    try {
+      const { xml } = await modeler.saveXML({ format: true });
+      await loadAndRenderD2(xml);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
+
+if (btnD2CopyCode) {
+  btnD2CopyCode.addEventListener('click', () => {
+    if (!currentD2Code) return;
+    navigator.clipboard.writeText(currentD2Code).then(() => {
+      const origText = btnD2CopyCode.innerHTML;
+      btnD2CopyCode.innerHTML = '<i class="fa-solid fa-check"></i> ¡Copiado!';
+      setTimeout(() => { btnD2CopyCode.innerHTML = origText; }, 2000);
+    });
+  });
+}
+
+if (btnD2DownloadSvg) {
+  btnD2DownloadSvg.addEventListener('click', () => {
+    if (!currentD2Svg) return;
+    download('diagram-d2.svg', currentD2Svg);
+  });
+}
+
+if (btnD2DownloadCode) {
+  btnD2DownloadCode.addEventListener('click', () => {
+    if (!currentD2Code) return;
+    download('diagram.d2', currentD2Code);
+  });
+}
+
 // Colors button in diagram toolbar
 const toggleColorsBtn = document.getElementById('toggleColors');
 if (toggleColorsBtn) {
@@ -1537,37 +1733,37 @@ function applyBpmnColors() {
     const elementRegistry = modeler.get('elementRegistry');
     if (!modeling || !elementRegistry) return;
 
-    // Canonical BPMN 2.0 colors (Camunda / bpmn.io convention)
+    // Modern Camunda / Figma harmonic palette
     const colorRules = {
-      // Start Events: Green
-      'bpmn:StartEvent': { stroke: '#2e7d32', fill: '#e8f5e9' },
-      // End Events: Red
-      'bpmn:EndEvent': { stroke: '#c62828', fill: '#ffebee' },
-      // Intermediate / Boundary Events: Orange
-      'bpmn:IntermediateCatchEvent': { stroke: '#ef6c00', fill: '#fff3e0' },
-      'bpmn:IntermediateThrowEvent': { stroke: '#ef6c00', fill: '#fff3e0' },
-      'bpmn:BoundaryEvent': { stroke: '#ef6c00', fill: '#fff3e0' },
-      // Gateways: Amber / Gold
-      'bpmn:ExclusiveGateway': { stroke: '#f57f17', fill: '#fff9c4' },
-      'bpmn:ParallelGateway': { stroke: '#f57f17', fill: '#fff9c4' },
-      'bpmn:InclusiveGateway': { stroke: '#f57f17', fill: '#fff9c4' },
-      'bpmn:ComplexGateway': { stroke: '#f57f17', fill: '#fff9c4' },
-      'bpmn:EventBasedGateway': { stroke: '#f57f17', fill: '#fff9c4' },
-      // Tasks / Activities: Blue
-      'bpmn:Task': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:UserTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:ServiceTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:SendTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:ReceiveTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:ManualTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:BusinessRuleTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:ScriptTask': { stroke: '#1565c0', fill: '#e3f2fd' },
-      'bpmn:CallActivity': { stroke: '#1565c0', fill: '#e3f2fd' },
-      // Subprocesses: Purple
-      'bpmn:SubProcess': { stroke: '#6a1b9a', fill: '#f3e5f5' },
-      // Data Objects / Stores: Teal
-      'bpmn:DataObjectReference': { stroke: '#00695c', fill: '#e0f2f1' },
-      'bpmn:DataStoreReference': { stroke: '#00695c', fill: '#e0f2f1' }
+      // Start Events: Emerald Mint
+      'bpmn:StartEvent': { stroke: '#059669', fill: '#ecfdf5' },
+      // End Events: Soft Ruby / Rose
+      'bpmn:EndEvent': { stroke: '#e11d48', fill: '#fff1f2' },
+      // Intermediate / Boundary Events: Warm Amber
+      'bpmn:IntermediateCatchEvent': { stroke: '#d97706', fill: '#fffbeb' },
+      'bpmn:IntermediateThrowEvent': { stroke: '#d97706', fill: '#fffbeb' },
+      'bpmn:BoundaryEvent': { stroke: '#d97706', fill: '#fffbeb' },
+      // Gateways: Golden Amber
+      'bpmn:ExclusiveGateway': { stroke: '#ca8a04', fill: '#fef9c3' },
+      'bpmn:ParallelGateway': { stroke: '#ca8a04', fill: '#fef9c3' },
+      'bpmn:InclusiveGateway': { stroke: '#ca8a04', fill: '#fef9c3' },
+      'bpmn:ComplexGateway': { stroke: '#ca8a04', fill: '#fef9c3' },
+      'bpmn:EventBasedGateway': { stroke: '#ca8a04', fill: '#fef9c3' },
+      // Tasks / Activities: Modern Tech Blue & Indigo
+      'bpmn:Task': { stroke: '#2563eb', fill: '#eff6ff' },
+      'bpmn:UserTask': { stroke: '#0284c7', fill: '#f0f9ff' },
+      'bpmn:ServiceTask': { stroke: '#7c3aed', fill: '#f5f3ff' },
+      'bpmn:SendTask': { stroke: '#2563eb', fill: '#eff6ff' },
+      'bpmn:ReceiveTask': { stroke: '#0284c7', fill: '#f0f9ff' },
+      'bpmn:ManualTask': { stroke: '#475569', fill: '#f8fafc' },
+      'bpmn:BusinessRuleTask': { stroke: '#d97706', fill: '#fffbeb' },
+      'bpmn:ScriptTask': { stroke: '#4f46e5', fill: '#eef2ff' },
+      'bpmn:CallActivity': { stroke: '#4338ca', fill: '#eef2ff' },
+      // Subprocesses: Royal Violet
+      'bpmn:SubProcess': { stroke: '#9333ea', fill: '#faf5ff' },
+      // Data Objects / Stores: Slate & Teal
+      'bpmn:DataObjectReference': { stroke: '#64748b', fill: '#f1f5f9' },
+      'bpmn:DataStoreReference': { stroke: '#475569', fill: '#f8fafc' }
     };
 
     const grouped = {};

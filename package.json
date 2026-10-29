@@ -14,6 +14,7 @@
   "dependencies": {
     "bpmn-js-bpmnlint": "^0.23.0",
     "bpmn-moddle": "^9.0.1",
+    "compression": "^1.8.2",
     "dotenv": "^16.4.0",
     "elkjs": "^0.12.0",
     "express": "^4.18.2",

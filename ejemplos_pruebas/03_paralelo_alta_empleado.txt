@@ -1,0 +1,10 @@
+Proceso de incorporación (onboarding) de nuevo empleado con actividades en paralelo:
+
+1. El departamento de selección inicia el flujo con la tarea de usuario "Registrar alta del nuevo trabajador".
+2. Una compuerta paralela "Bifurcación de onboarding" divide las tareas simultáneas en tres ramas:
+   - Rama 1 (Recursos Humanos): tarea de usuario "Preparar contrato y firma de bienvenida".
+   - Rama 2 (Sistemas e IT): tarea de servicio "Aprovisionar cuenta de correo y accesos", seguida de la tarea manual "Configurar y entregar ordenador portátil".
+   - Rama 3 (Logística): tarea manual "Preparar puesto físico de trabajo y tarjeta de acceso".
+3. Las tres ramas convergen en una compuerta paralela de sincronización "Sincronizar preparativos".
+4. Una vez completadas todas las actividades, se ejecuta la tarea de usuario "Sesión de bienvenida con el tutor".
+5. El proceso concluye con el evento de fin "Incorporación completada".
