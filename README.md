@@ -55,18 +55,32 @@ npm install
 npm run build
 ```
 
-### 3. Create `.env` file
+### 4. Create `.env` file
 
-At the root level, create a `.env` file with:
+At the root level, copy `.env.example` or create a `.env` file:
 
 ```bash
+cp .env.example .env
+```
+
+Configure your chosen provider (Local LLM and/or Cloud):
+
+```bash
+# Server Port
+PORT=3000
+
+# Local LLM configuration (oMLX, Ollama, LM Studio, vLLM)
+LOCAL_LLM_URL=http://127.0.0.1:8000/v1
+LOCAL_LLM_API_KEY=
+# Leave blank to auto-detect active model, or specify explicitly (e.g., qwen2.5-coder:14b)
+LOCAL_LLM_MODEL=
+
+# Cloud Providers (Optional)
 DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
 OPENAI_API_KEY=sk-your-chatgpt-api-key-here
 ```
 
-Replace with your real DeepSeek API key.
-
-### 4. Start the server
+### 5. Start the server
 
 ```bash
 npm start
@@ -79,6 +93,44 @@ http://localhost:3000
 ```
 
 ✅ Text-to-BPMN2.0 app will be live on your local machine.
+
+---
+
+## 🧠 Local LLM Configuration
+
+The application natively supports local OpenAI-compatible inference servers (**oMLX**, **Ollama**, **LM Studio**, **vLLM**, etc.).
+
+### 1. Common Provider Endpoints
+
+Set `LOCAL_LLM_URL` in `.env` based on your local engine:
+
+| Engine | Default URL | Notes |
+|:---|:---|:---|
+| **oMLX** (macOS MLX) | `http://127.0.0.1:8000/v1` | Supports active model auto-detection via `/models/status` |
+| **Ollama** | `http://127.0.0.1:11434/v1` | Requires `ollama serve` and models pulled via `ollama run` |
+| **LM Studio** | `http://127.0.0.1:1234/v1` | Start the local server in LM Studio developer tab |
+| **vLLM** / **LocalAI** | `http://127.0.0.1:8000/v1` | Standard OpenAI API compatible endpoint |
+
+### 2. Model Selection & Auto-Detection
+
+* **Automatic Detection**: If `LOCAL_LLM_MODEL` is left empty, the server automatically queries the loaded model via `/models/status` (oMLX) or `/models` (Ollama/LM Studio).
+* **Explicit Model**: You can specify an exact model name in `.env`:
+  ```bash
+  LOCAL_LLM_MODEL=qwen2.5-coder:14b
+  ```
+
+### 3. Recommended Models for BPMN Generation
+
+Generating valid BPMN 2.0 XML with precise coordinate layouts requires strong structured output capabilities. We recommend:
+* **Qwen 2.5 Coder (7B, 14B, or 32B)**: Excellent XML structure and tag compliance.
+* **DeepSeek-R1 / Qwen-based Distills**: Strong logical reasoning for complex process branching and gateways.
+* **Llama 3.1 / 3.3 (8B or 70B)**: Good general workflow interpretation.
+
+### 4. Docker & Local Networking
+
+When running the application inside Docker (`docker compose up`), the server automatically maps `127.0.0.1` and `localhost` in `LOCAL_LLM_URL` to `host.docker.internal` so the container can reach your host machine's LLM server without manual configuration.
+
+* Note for **Ollama on Linux/macOS**: Ensure Ollama is configured to listen on all interfaces if necessary (`OLLAMA_HOST=0.0.0.0`).
 
 ---
 
